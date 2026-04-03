@@ -1,0 +1,106 @@
+body{
+    font-family: Arial;
+    background-color: #000137;
+    text-align: center;
+    color: #e4e7ec;
+    background-image: url("bg8.jpg");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+/*#E6F1FF - for hover (light blue)
+#FFB4A2*/
+
+.container {
+    background-color: rgba(5, 10, 45, 0.629);
+    border-radius: 10px;
+    border: 1px solid rgba(120,160,255,0.25);
+    backdrop-filter: blur(5px) ;
+    padding: 30px;
+    max-width: 300px;
+    height: 380px;
+    margin: 100px auto;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* vertical centering */
+    align-items: center;     /* horizontal centering */
+
+}
+/*#172743*/
+/*background-color:  rgba(28, 47, 82, 0.8);*/
+
+
+input{
+    display: block;
+    margin: 15px auto;
+    padding: 10px;
+    width: 230px;
+    border: 1.5px solid #c5ccd8;
+    /*border: 2px solid #bfc9d9;*/
+    border-radius: 6px;
+    /*background-color:#F5F7FA;*/
+    background-color: rgba(255,255,255,0.05);
+    color: #e0e0ff;
+    transition: border-color 0.2s ease;
+}
+
+input:hover
+{
+    border: 1.5px solid #7fb3ff;
+}
+
+input:focus{
+    border: 1.5px solid #357ABD;
+    outline: none;
+}
+
+
+
+button{
+    padding: 10px 20px;
+    margin: 10px;
+    font-size: 16px;
+    border-radius: 10px;
+    background-color: #4fd1c5/*#A8E6CF*/;
+    color: #000137;
+    transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+button:hover{
+    transform: translateY(-2px);
+	background-color:#37b3a9;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.3);
+    color: #060061;
+    cursor: pointer;
+}
+
+.link {
+  text-align: center;
+  margin-top: 12px;
+  font-size: 13px;
+  color: #e0e0e0;  
+}
+
+.link a {
+  color: #4A7ED0;   
+  text-decoration: none;
+  font-weight: 550;
+}
+
+.link a:hover {
+  color:  #5B8EE0; 
+  text-decoration: underline;
+}
+
+footer {
+    text-align: center;
+    font-size: 0.8rem;
+    color: #aaa;
+    padding: 10px 0;
+    position: fixed;
+    bottom: 1;
+    width: 100%;
+    background: transparent; /* or a subtle background if needed */
+}

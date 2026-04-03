@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Phishing Detection</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="site-header">
+    <h1 class="site-name">Phishing URL Detection</h1>
+</div>
+
+<div class="container">
+
+    <form method="post" action="/scan">
+        <input type="text" name="url" placeholder="Enter URL here" required>
+        <button type="submit">Scan</button>
+    </form>
+
+    {% if error %}
+        <div class="result">
+            <p style="color:red;"><strong>Error:</strong> {{ error }}</p>
+        </div>
+    {% endif %}
+
+    {% if prediction %}
+        <div class="result">
+            <p><strong>URL:</strong> {{ url }}</p>
+            <p><strong>Prediction:</strong> {{ prediction }}</p>
+            <p><strong>Confidence:</strong> {{ confidence }}</p>
+        </div>
+    {% endif %}
+
+</div>
+
+</body>
+</html>

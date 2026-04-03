@@ -1,0 +1,196 @@
+html, body {
+    font-family: Arial;
+    text-align: center;
+    color: #e4e7ec;
+    margin: 0px;
+    padding: 10px 0px;
+    height: 100%;
+    position: relative;
+}
+
+.site-header {
+    display: flex;
+    align-items: center;   /* vertically aligns logo and text */
+    gap: 10px;             /* space between logo and name */
+    justify-content: center;
+}
+
+.logo {
+    width: 70px;           /* adjust size */
+    height: 70px;
+    position: relative;
+    top: -3px;
+}
+
+.site-name {
+    margin: 0;
+}
+
+body::before{
+	content: "";
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: url("bg8.jpg") no-repeat center/cover;
+	filter: brightness(60%);
+	z-index: -1;
+}
+
+/*body{
+    font-family: Arial;
+    background-color: #000137;
+    text-align: center;
+    color: #e4e7ec;
+    background-image: url("bg8.jpg");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}*/
+
+button{
+    padding: 10px 20px;
+    margin: 10px;
+    font-size: 16px;
+    border-radius: 10px;
+    background-color: #4fd1c5/*#A8E6CF*/;
+    color: #000137;
+    transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+button:not(:disabled):hover{
+    transform: translateY(-2px);
+	background-color:#37b3a9;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.3);
+    color: #060061;
+    cursor: pointer;
+}
+
+/*
+.home-container {
+    background-color: rgba(5, 10, 45, 0.629);
+    border-radius: 10px;
+    border: 1px solid rgba(120,160,255,0.25);
+    backdrop-filter: blur(5px) ;
+    padding: 30px;
+    max-width: 1000px;
+    margin: 50px auto;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start; 
+    align-items: flex-start;               
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.button-block {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px; 
+    padding: 10px 0px;
+}
+*/
+
+.home-container {
+    background-color: rgba(5, 10, 45, 0.629);
+    border-radius: 10px;
+    border: 1px solid rgba(120,160,255,0.25);
+    backdrop-filter: blur(5px);
+    padding: 30px;
+    max-width: 1000px;
+    margin: 50px auto;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+
+    display: flex;
+    flex-wrap: wrap;              /* allows next row */
+    justify-content: center; /* first two spread */
+    align-items: center;
+    gap: 40px;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.button-block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 0px;
+    width: 45%;                   /* two items per row */
+    align-items: center;
+}
+
+/* third block centered on next line */
+.button-block:nth-child(3) {
+    width: 100%;
+    align-items: center;
+    text-align: center;
+}
+
+.button-block p {
+    margin: 0px;
+    padding: 0px 10px;
+    font-size: 0.9rem;
+    color: #e0e0e0; /* or any subtle light shade over your bg */
+    text-align: center;
+}
+
+h2{
+    padding: 5px 10px;
+    margin: 0px;
+    color: #4fc5be;
+    text-align: center;
+}
+
+h1{
+    color: #e6c45c;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+}
+
+input{
+    display: block;
+    margin: 15px auto;
+    padding: 10px;
+    width: 230px;
+    border: 1.5px solid #c5ccd8;
+    /*border: 2px solid #bfc9d9;*/
+    border-radius: 6px;
+    /*background-color:#F5F7FA;*/
+    background-color: rgba(255,255,255,0.05);
+    color: #e0e0ff;
+    transition: border-color 0.2s ease;
+}
+
+input:hover
+{
+    border: 1.5px solid #7fb3ff;
+}
+
+input:focus{
+    border: 1.5px solid #357ABD;
+    outline: none;
+}
+
+.container {
+     background-color: rgba(5, 10, 45, 0.629);
+    border-radius: 10px;
+    border: 1px solid rgba(120,160,255,0.25);
+    backdrop-filter: blur(5px);
+    padding: 30px;
+    max-width: 1000px;
+    margin: 50px auto;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* vertical centering */
+    align-items: center;     /* horizontal centering */
+}
