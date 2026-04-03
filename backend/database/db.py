@@ -1,43 +1,50 @@
-import sqlite3
+import psycopg2
 import os
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
 
 def get_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    return psycopg2.connect(DATABASE_URL)
+
 
 def init_db():
     conn = get_connection()
-    conn.execute("""
+    cur = conn.cursor()
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL
         )
     """)
     conn.commit()
+    cur.close()
     conn.close()
+
 
 def create_user(name, email, password):
     try:
         conn = get_connection()
-        conn.execute(
-            "INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO users (name, email, password) VALUES (%s, %s, %s)",
             (name, email, password)
         )
         conn.commit()
+        cur.close()
         conn.close()
         return True
-    except sqlite3.IntegrityError:
+    except psycopg2.errors.UniqueViolation:
         return False  # email already exists
+
 
 def get_user(email):
     conn = get_connection()
-    user = conn.execute(
-        "SELECT * FROM users WHERE email = ?", (email,)
-    ).fetchone()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE email = %s", (email,))
+    row = cur.fetchone()
+    cur.close()
     conn.close()
-    return user
+    return row
