@@ -44,10 +44,7 @@ users = {}
 
 @app.get("/", response_class=HTMLResponse)
 def login_page(request: Request):
-    return templates.TemplateResponse(
-        "login.html",
-        {"request": request}
-    )
+    return templates.TemplateResponse(request, "login.html")
 
 
 # ------------------------------------------------
@@ -56,10 +53,7 @@ def login_page(request: Request):
 
 @app.get("/register", response_class=HTMLResponse)
 def register_page(request: Request):
-    return templates.TemplateResponse(
-        "register.html",
-        {"request": request}
-    )
+    return templates.TemplateResponse(request, "register.html")
 
 
 # ------------------------------------------------
@@ -112,10 +106,7 @@ def login(
 
 @app.get("/home", response_class=HTMLResponse)
 def home(request: Request):
-    return templates.TemplateResponse(
-        "home.html",
-        {"request": request}
-    )
+    return templates.TemplateResponse(request, "home.html")
 
 
 # ------------------------------------------------
@@ -124,10 +115,7 @@ def home(request: Request):
 
 @app.get("/scanner", response_class=HTMLResponse)
 def scanner(request: Request):
-    return templates.TemplateResponse(
-        "detection.html",
-        {"request": request}
-    )
+    return templates.TemplateResponse(request, "detection.html")
 
 
 # ------------------------------------------------
@@ -147,22 +135,14 @@ def scan(
 
         result = "Phishing" if prediction == 1 else "Legitimate"
 
-        return templates.TemplateResponse(
-            "detection.html",
-            {
-                "request": request,
-                "url": url,
-                "prediction": result,
-                "confidence": round(float(confidence), 4)
-            }
-        )
+        return templates.TemplateResponse(request, "detection.html", {
+            "url": url,
+            "prediction": result,
+            "confidence": round(float(confidence), 4)
+        })
 
     except ValueError as e:
 
-        return templates.TemplateResponse(
-            "detection.html",
-            {
-                "request": request,
-                "error": str(e)
-            }
-        )
+        return templates.TemplateResponse(request, "detection.html", {
+            "error": str(e)
+        })
