@@ -18,9 +18,6 @@ templates = Jinja2Templates(directory="../frontend")
 
 app.include_router(fraud.router, prefix="/fraud", tags=["Fraud Detection"])
 
-users = {}
-
-
 @app.get("/", response_class=HTMLResponse)
 def login_page(request: Request):
     return templates.TemplateResponse(request, "login.html")
