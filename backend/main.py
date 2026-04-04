@@ -118,10 +118,8 @@ def scan(request: Request, url: str = Form(...), session: str = Cookie(default=N
             confidence = max(confidence, 0.90)
             warning = f"Warning: This URL contains '{brand}' but is not the official {KNOWN_BRANDS_MAP.get(brand, brand)} domain."
 
-        # Get human readable reasons
         reasons = get_feature_reasons(url)
 
-        # If brand impersonation, add it to reasons
         if is_impersonating:
             reasons.insert(0, {
                 "flag": "danger",
@@ -139,3 +137,10 @@ def scan(request: Request, url: str = Form(...), session: str = Cookie(default=N
         return templates.TemplateResponse(request, "detection.html", {
             "error": str(e)
         })
+
+
+@app.get("/vuln", response_class=HTMLResponse)
+def vuln_page(request: Request, session: str = Cookie(default=None)):
+    if not session or not verify_session(session):
+        return RedirectResponse(url="/", status_code=303)
+    return templates.TemplateResponse(request, "vulnerability.html")
