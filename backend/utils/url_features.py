@@ -147,3 +147,74 @@ def extract_features(url: str):
     feature_order = joblib.load("models/feature_order.pkl")
 
     return [features.get(f, 0) for f in feature_order]
+
+def get_feature_reasons(url: str):
+    """Returns a dict of feature name -> (value, human readable reason)"""
+    if not url.startswith("http://") and not url.startswith("https://"):
+        url = "https://" + url
+
+    parsed = urlparse(url)
+    domain = parsed.netloc
+
+    reasons = []
+
+    # IP Address
+    if re.match(r"\d+\.\d+\.\d+\.\d+", domain):
+        reasons.append({"flag": "danger", "text": "URL uses an IP address instead of a domain name"})
+
+    # URL Length
+    length = len(url)
+    if length > 75:
+        reasons.append({"flag": "danger", "text": f"URL is very long ({length} characters) — common in phishing"})
+    elif length > 54:
+        reasons.append({"flag": "warning", "text": f"URL is moderately long ({length} characters)"})
+
+    # Shortening service
+    if re.search(r"bit\.ly|goo\.gl|tinyurl|ow\.ly|t\.co", url):
+        reasons.append({"flag": "danger", "text": "URL uses a shortening service to hide the real destination"})
+
+    # At symbol
+    if "@" in url:
+        reasons.append({"flag": "danger", "text": "URL contains '@' symbol — used to deceive browsers"})
+
+    # Double slash
+    if url.count("//") > 1:
+        reasons.append({"flag": "danger", "text": "URL contains double slash redirect"})
+
+    # Hyphen in domain
+    if "-" in domain:
+        reasons.append({"flag": "danger", "text": f"Domain contains hyphen '{domain}' — common phishing tactic"})
+
+    # Subdomains
+    dot_count = domain.count(".")
+    if dot_count > 2:
+        reasons.append({"flag": "danger", "text": f"Domain has multiple subdomains — suspicious nesting"})
+
+    # SSL
+    try:
+        context = ssl.create_default_context()
+        with socket.create_connection((domain, 443), timeout=5) as sock:
+            with context.wrap_socket(sock, server_hostname=domain) as ssock:
+                reasons.append({"flag": "safe", "text": "Site has a valid SSL certificate"})
+    except:
+        reasons.append({"flag": "danger", "text": "Site does not have a valid SSL certificate"})
+
+    # HTTPS in domain name
+    if "https" in domain.lower():
+        reasons.append({"flag": "danger", "text": "Domain name contains 'https' — used to trick users visually"})
+
+    # Domain age
+    try:
+        domain_info = whois.whois(domain)
+        creation_date = domain_info.creation_date
+        if isinstance(creation_date, list):
+            creation_date = creation_date[0]
+        age = (datetime.now() - creation_date).days
+        if age <= 365:
+            reasons.append({"flag": "danger", "text": f"Domain is only {age} days old — newly registered domains are suspicious"})
+        else:
+            reasons.append({"flag": "safe", "text": f"Domain has been registered for {age} days — established domain"})
+    except:
+        reasons.append({"flag": "warning", "text": "Could not verify domain registration age"})
+
+    return reasons

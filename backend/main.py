@@ -4,12 +4,12 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from utils.brand_check import check_brand_impersonation, KNOWN_BRANDS as KNOWN_BRANDS_MAP
+from utils.url_features import extract_features, get_feature_reasons
 import bcrypt
 import os
 
 from routers import fraud
 from services.ml_model import predict
-from utils.url_features import extract_features
 from database.db import init_db, create_user, get_user
 
 app = FastAPI(title="CyberThreat Shield")
@@ -105,25 +105,34 @@ def scan(request: Request, url: str = Form(...), session: str = Cookie(default=N
     if not session or not verify_session(session):
         return RedirectResponse(url="/", status_code=303)
     try:
-        # Check brand impersonation first
         is_impersonating, brand = check_brand_impersonation(url)
 
         features = extract_features(url)
         prediction, confidence = predict(features)
         result = "Phishing" if prediction == 1 else "Legitimate"
 
-        # Override to Phishing if brand impersonation detected
         warning = None
         if is_impersonating:
             result = "Phishing"
             confidence = max(confidence, 0.90)
             warning = f"Warning: This URL contains '{brand}' but is not the official {KNOWN_BRANDS_MAP.get(brand, brand)} domain."
 
+        # Get human readable reasons
+        reasons = get_feature_reasons(url)
+
+        # If brand impersonation, add it to reasons
+        if is_impersonating:
+            reasons.insert(0, {
+                "flag": "danger",
+                "text": f"Domain impersonates '{brand}' — not the official {KNOWN_BRANDS_MAP.get(brand, brand)} domain"
+            })
+
         return templates.TemplateResponse(request, "detection.html", {
             "url": url,
             "prediction": result,
             "confidence": round(float(confidence), 4),
-            "warning": warning
+            "warning": warning,
+            "reasons": reasons
         })
     except ValueError as e:
         return templates.TemplateResponse(request, "detection.html", {
