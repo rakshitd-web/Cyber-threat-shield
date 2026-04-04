@@ -194,3 +194,147 @@ input:focus{
     justify-content: center; /* vertical centering */
     align-items: center;     /* horizontal centering */
 }
+
+.dropdown-wrapper {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+    max-width: 400px;
+    margin: 16px auto;
+}
+
+.dropdown-btn {
+    width: 100%;
+    padding: 10px 16px;
+    background: rgba(5, 10, 45, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.dropdown-wrapper .dropdown-btn:hover {
+    background-color: rgba(0, 212, 255, 0.08);
+    border-color: rgba(0, 212, 255, 0.5);
+    box-shadow: 0 0 8px rgba(0, 212, 255, 0.15);
+    transform: none;
+    color: #fff;
+}
+
+.dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: rgba(5, 10, 45, 0.85);       
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    z-index: 100;
+    max-height: 320px;
+    overflow-y: auto;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(12px);           
+    -webkit-backdrop-filter: blur(12px);      
+}
+
+.dropdown-menu.open {
+    display: block;
+}
+
+.dropdown-menu label {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 10px 25px;
+    font-size: 14px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    transition: background-color 0.2s;
+}
+
+.dropdown-menu label:hover {
+    background: rgba(0, 212, 255, 0.15);
+}
+
+.dropdown-menu label:last-child {
+    border-bottom: none;
+}
+
+.dropdown-menu input[type=checkbox] {
+    accent-color: #00d4ff;
+    padding: 0px;
+    width: 17px;
+    height: 17px;
+    border-radius: 5px;
+    margin: 5px;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.dropdown-menu input[type=checkbox]:checked {
+    background-color: #00d4ff;
+    border-color: #00d4ff;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1.5 5l2.5 2.5 4.5-4.5' stroke='%23000137' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-size: 70%;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.dropdown-menu input[type=checkbox]:hover {
+    border-color: #00d4ff;
+}
+
+.select-all-row {
+    padding: 8px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+}
+
+.select-all-row span {
+    font-size: 12px;
+    color: #00d4ff;
+    cursor: pointer;
+}
+
+.select-all-row span:hover {
+    text-decoration: underline;
+}
+
+.selected-count {
+    font-size: 12px;
+    color: #00d4ff;
+}
+
+.status-safe {
+    background: rgba(50, 255, 100, 0.1);
+    color: #51cf66;
+}
+
+.status-danger {
+    background: rgba(255, 50, 50, 0.1);
+    color: #ff6b6b;
+}
+
+.status-warning {
+    background: rgba(255, 200, 50, 0.1);
+    color: #fcc419;
+}
+
+.status-info {
+    background: rgba(100, 150, 255, 0.1);
+    color: #74c0fc;
+}
+
+.download-form {
+    margin-top: 20px;
+}
+
