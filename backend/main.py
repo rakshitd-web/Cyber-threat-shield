@@ -126,6 +126,32 @@ def scan(request: Request, url: str = Form(...), session: str = Cookie(default=N
                 "text": f"Domain impersonates '{brand}' — not the official {KNOWN_BRANDS_MAP.get(brand, brand)} domain"
             })
 
+        # Count red flags from reasons
+        red_flags = sum(1 for r in reasons if r["flag"] == "danger")
+
+        # Heuristic overrides — if model says Legitimate but multiple red flags exist
+        if result == "Legitimate":
+            parsed = urlparse(url if url.startswith("http") else "https://" + url)
+            path = parsed.path.lower()
+            domain = parsed.netloc.lower()
+
+            # Suspicious path patterns
+            suspicious_paths = [
+                ".php", "support", "login", "verify", "secure",
+                "update", "account", "banking", "confirm", "signin"
+            ]
+            path_flags = sum(1 for p in suspicious_paths if p in path)
+
+            # Override conditions
+            if red_flags >= 3:
+                result = "Phishing"
+                confidence = max(confidence, 0.80)
+                warning = (warning or "") + " Multiple risk factors detected by analysis."
+            elif red_flags >= 2 and path_flags >= 1:
+                result = "Phishing"
+                confidence = max(confidence, 0.75)
+                warning = (warning or "") + " Suspicious URL pattern combined with risk factors detected."
+
         return templates.TemplateResponse(request, "detection.html", {
             "url": url,
             "prediction": result,
@@ -137,7 +163,6 @@ def scan(request: Request, url: str = Form(...), session: str = Cookie(default=N
         return templates.TemplateResponse(request, "detection.html", {
             "error": str(e)
         })
-
 
 @app.get("/vuln", response_class=HTMLResponse)
 def vuln_page(request: Request, session: str = Cookie(default=None)):
