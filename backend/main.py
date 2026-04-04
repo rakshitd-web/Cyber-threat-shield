@@ -6,65 +6,27 @@ from fastapi.staticfiles import StaticFiles
 from routers import fraud
 from services.ml_model import predict
 from utils.url_features import extract_features
+from database.db import init_db, create_user, get_user
 
 
 app = FastAPI(title="Phishing Detection System")
 
-
-# ------------------------------------------------
-# Static files
-# ------------------------------------------------
+init_db()
 
 app.mount("/static", StaticFiles(directory="../frontend"), name="static")
-
-# ------------------------------------------------
-# Templates
-# ------------------------------------------------
-
 templates = Jinja2Templates(directory="../frontend")
-
-
-# ------------------------------------------------
-# Routers
-# ------------------------------------------------
 
 app.include_router(fraud.router, prefix="/fraud", tags=["Fraud Detection"])
 
-
-# ------------------------------------------------
-# Temporary user storage
-# ------------------------------------------------
-
-users = {}
-
-
-# ------------------------------------------------
-# Login page
-# ------------------------------------------------
-
 @app.get("/", response_class=HTMLResponse)
 def login_page(request: Request):
-    return templates.TemplateResponse(
-        "login.html",
-        {"request": request}
-    )
+    return templates.TemplateResponse(request, "login.html")
 
-
-# ------------------------------------------------
-# Register page
-# ------------------------------------------------
 
 @app.get("/register", response_class=HTMLResponse)
 def register_page(request: Request):
-    return templates.TemplateResponse(
-        "register.html",
-        {"request": request}
-    )
+    return templates.TemplateResponse(request, "register.html")
 
-
-# ------------------------------------------------
-# Register user
-# ------------------------------------------------
 
 @app.post("/register")
 def register(
@@ -72,97 +34,43 @@ def register(
     email: str = Form(...),
     password: str = Form(...)
 ):
+    create_user(name, email, password)
+    return RedirectResponse(url="/", status_code=303)
 
-    users[email] = {
-        "name": name,
-        "password": password
-    }
-
-    return RedirectResponse(
-        url="/",
-        status_code=303
-    )
-
-
-# ------------------------------------------------
-# Login authentication
-# ------------------------------------------------
 
 @app.post("/login")
 def login(
     email: str = Form(...),
     password: str = Form(...)
 ):
+    user = get_user(email)
+    if user and user["password"] == password:
+        return RedirectResponse(url="/home", status_code=303)
+    return RedirectResponse(url="/", status_code=303)
 
-    if email in users and users[email]["password"] == password:
-        return RedirectResponse(
-            url="/home",
-            status_code=303
-        )
-
-    return RedirectResponse(
-        url="/",
-        status_code=303
-    )
-
-
-# ------------------------------------------------
-# Home page
-# ------------------------------------------------
 
 @app.get("/home", response_class=HTMLResponse)
 def home(request: Request):
-    return templates.TemplateResponse(
-        "home.html",
-        {"request": request}
-    )
+    return templates.TemplateResponse(request, "home.html")
 
-
-# ------------------------------------------------
-# Scanner page
-# ------------------------------------------------
 
 @app.get("/scanner", response_class=HTMLResponse)
 def scanner(request: Request):
-    return templates.TemplateResponse(
-        "detection.html",
-        {"request": request}
-    )
+    return templates.TemplateResponse(request, "detection.html")
 
-
-# ------------------------------------------------
-# URL Scan
-# ------------------------------------------------
 
 @app.post("/scan", response_class=HTMLResponse)
-def scan(
-    request: Request,
-    url: str = Form(...)
-):
-
+def scan(request: Request, url: str = Form(...)):
     try:
-
         features = extract_features(url)
         prediction, confidence = predict(features)
-
         result = "Phishing" if prediction == 1 else "Legitimate"
-
-        return templates.TemplateResponse(
-            "detection.html",
-            {
-                "request": request,
-                "url": url,
-                "prediction": result,
-                "confidence": round(float(confidence), 4)
-            }
-        )
-
+        return templates.TemplateResponse(request, "detection.html", {
+            "url": url,
+            "prediction": result,
+            "confidence": round(float(confidence), 4)
+        })
     except ValueError as e:
-
-        return templates.TemplateResponse(
-            "detection.html",
-            {
-                "request": request,
-                "error": str(e)
-            }
-        )
+        return templates.TemplateResponse(request, "detection.html", {
+            "error": str(e)
+        })
