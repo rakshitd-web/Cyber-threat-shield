@@ -7,7 +7,7 @@ from utils.brand_check import check_brand_impersonation, KNOWN_BRANDS as KNOWN_B
 from utils.url_features import extract_features, get_feature_reasons
 import bcrypt
 import os
-
+from urllib.parse import urlparse
 from routers import fraud, vulnerability
 from services.ml_model import predict
 from database.db import init_db, create_user, get_user
