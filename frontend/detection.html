@@ -26,8 +26,18 @@
     {% if prediction %}
         <div class="result">
             <p><strong>URL:</strong> {{ url }}</p>
-            <p><strong>Prediction:</strong> {{ prediction }}</p>
+            <p><strong>Prediction:</strong>
+                {% if prediction == 'Phishing' %}
+                    <span style="color: red;">{{ prediction }}</span>
+                {% else %}
+                    <span style="color: green;">{{ prediction }}</span>
+                {% endif %}
+
+            </p>
             <p><strong>Confidence:</strong> {{ confidence }}</p>
+            {% if warning %}
+                <p style="color:orange;"><strong>⚠ {{ warning }}</strong></p>
+            {% endif %}
         </div>
     {% endif %}
 
