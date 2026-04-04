@@ -8,35 +8,36 @@ from urllib.parse import urlparse
 from datetime import datetime
 
 FEATURE_ORDER = [
-"having_IP_Address",
-"URL_Length",
-"Shortining_Service",
-"having_At_Symbol",
-"double_slash_redirecting",
-"Prefix_Suffix",
-"having_Sub_Domain",
-"HTTPS_token",
-"Domain_registeration_length",
-"Favicon",
-"port",
-"Request_URL",
-"URL_of_Anchor",
-"Links_in_tags",
-"SFH",
-"Submitting_to_email",
-"Abnormal_URL",
-"Redirect",
-"on_mouseover",
-"RightClick",
-"popUpWidnow",
-"Iframe",
-"age_of_domain",
-"DNSRecord",
-"web_traffic",
-"Page_Rank",
-"Google_Index",
-"Links_pointing_to_page",
-"Statistical_report"
+    "having_IP_Address",
+    "URL_Length",
+    "Shortining_Service",
+    "having_At_Symbol",
+    "double_slash_redirecting",
+    "Prefix_Suffix",
+    "having_Sub_Domain",
+    "SSLfinal_State",
+    "Domain_registeration_length",
+    "Favicon",
+    "port",
+    "HTTPS_token",
+    "Request_URL",
+    "URL_of_Anchor",
+    "Links_in_tags",
+    "SFH",
+    "Submitting_to_email",
+    "Abnormal_URL",
+    "Redirect",
+    "on_mouseover",
+    "RightClick",
+    "popUpWidnow",
+    "Iframe",
+    "age_of_domain",
+    "DNSRecord",
+    "web_traffic",
+    "Page_Rank",
+    "Google_Index",
+    "Links_pointing_to_page",
+    "Statistical_report"
 ]
 
 
@@ -58,7 +59,6 @@ def domain_exists(domain: str):
 
 def extract_features(url: str):
 
-    # Auto add https if missing
     if not url.startswith("http://") and not url.startswith("https://"):
         url = "https://" + url
 
@@ -106,28 +106,30 @@ def extract_features(url: str):
     else:
         features["having_Sub_Domain"] = -1
 
-    # 8. HTTPS_token
+    # 8. SSLfinal_State
+    try:
+        context = ssl.create_default_context()
+        with socket.create_connection((domain, 443), timeout=5) as sock:
+            with context.wrap_socket(sock, server_hostname=domain) as ssock:
+                features["SSLfinal_State"] = 1
+    except:
+        features["SSLfinal_State"] = -1
+
+    # 9. HTTPS_token
     features["HTTPS_token"] = -1 if "https" in domain.lower() else 1
 
-    # Domain age
+    # 10. Domain_registeration_length
     try:
         domain_info = whois.whois(domain)
         creation_date = domain_info.creation_date
-
         if isinstance(creation_date, list):
             creation_date = creation_date[0]
-
         age = (datetime.now() - creation_date).days
-
-        if age > 365:
-            features["Domain_registeration_length"] = 1
-        else:
-            features["Domain_registeration_length"] = -1
-
+        features["Domain_registeration_length"] = 1 if age > 365 else -1
     except:
         features["Domain_registeration_length"] = -1
 
-
+    # Remaining features defaulted to 0
     advanced_features = [
         "Favicon", "port", "Request_URL", "URL_of_Anchor",
         "Links_in_tags", "SFH", "Submitting_to_email",
@@ -135,7 +137,7 @@ def extract_features(url: str):
         "RightClick", "popUpWidnow", "Iframe",
         "age_of_domain", "DNSRecord", "web_traffic",
         "Page_Rank", "Google_Index",
-        "Links_pointing_to_page", "Statistical_report","SSLfinal_State"
+        "Links_pointing_to_page", "Statistical_report"
     ]
 
     for feature in advanced_features:

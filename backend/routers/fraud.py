@@ -11,16 +11,14 @@ class URLRequest(BaseModel):
 
 @router.post("/")
 def detect_fraud(request: URLRequest):
-
     try:
         features = extract_features(request.url)
-
         prediction, confidence = predict(features)
 
         if prediction == 1:
-            result = "Legitimate"
-        else:
             result = "Phishing"
+        else:
+            result = "Legitimate"
 
         return {
             "url": request.url,
