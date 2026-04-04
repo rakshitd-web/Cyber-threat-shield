@@ -1,5 +1,6 @@
 import psycopg2
 import os
+import bcrypt
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -26,25 +27,28 @@ def init_db():
 
 def create_user(name, email, password):
     try:
+        hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
         conn = get_connection()
         cur = conn.cursor()
         cur.execute(
             "INSERT INTO users (name, email, password) VALUES (%s, %s, %s)",
-            (name, email, password)
+            (name, email, hashed)
         )
         conn.commit()
         cur.close()
         conn.close()
         return True
     except psycopg2.errors.UniqueViolation:
-        return False  # email already exists
+        return False
 
 
 def get_user(email):
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM users WHERE email = %s", (email,))
+    cur.execute("SELECT id, name, email, password FROM users WHERE email = %s", (email,))
     row = cur.fetchone()
     cur.close()
     conn.close()
-    return row
+    if row is None:
+        return None
+    return {"id": row[0], "name": row[1], "email": row[2], "password": row[3]}

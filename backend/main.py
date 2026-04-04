@@ -1,15 +1,20 @@
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, Cookie
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+import bcrypt
+import os
 
 from routers import fraud
 from services.ml_model import predict
 from utils.url_features import extract_features
 from database.db import init_db, create_user, get_user
 
+app = FastAPI(title="CyberThreat Shield")
 
-app = FastAPI(title="Phishing Detection System")
+SECRET_KEY = os.environ.get("SECRET_KEY", "change-this-in-production")
+serializer = URLSafeTimedSerializer(SECRET_KEY)
 
 init_db()
 
@@ -18,49 +23,86 @@ templates = Jinja2Templates(directory="../frontend")
 
 app.include_router(fraud.router, prefix="/fraud", tags=["Fraud Detection"])
 
+
+def create_session(email: str):
+    return serializer.dumps(email)
+
+
+def verify_session(token: str):
+    try:
+        email = serializer.loads(token, max_age=86400)
+        return email
+    except (BadSignature, SignatureExpired):
+        return None
+
+
 @app.get("/", response_class=HTMLResponse)
 def login_page(request: Request):
-    return templates.TemplateResponse(request, "login.html")
+    return templates.TemplateResponse(request, "login.html", {"error": None})
 
 
 @app.get("/register", response_class=HTMLResponse)
 def register_page(request: Request):
-    return templates.TemplateResponse(request, "register.html")
+    return templates.TemplateResponse(request, "register.html", {"error": None})
 
 
 @app.post("/register")
 def register(
+    request: Request,
     name: str = Form(...),
     email: str = Form(...),
     password: str = Form(...)
 ):
-    create_user(name, email, password)
+    success = create_user(name, email, password)
+    if not success:
+        return templates.TemplateResponse(request, "register.html", {
+            "error": "Email already registered. Please login."
+        })
     return RedirectResponse(url="/", status_code=303)
 
 
 @app.post("/login")
 def login(
+    request: Request,
     email: str = Form(...),
     password: str = Form(...)
 ):
     user = get_user(email)
-    if user and user["password"] == password:
-        return RedirectResponse(url="/home", status_code=303)
-    return RedirectResponse(url="/", status_code=303)
+    if user and bcrypt.checkpw(password.encode("utf-8"), user["password"].encode("utf-8")):
+        token = create_session(email)
+        response = RedirectResponse(url="/home", status_code=303)
+        response.set_cookie(key="session", value=token, httponly=True, samesite="lax")
+        return response
+    return templates.TemplateResponse(request, "login.html", {
+        "error": "Invalid email or password."
+    })
+
+
+@app.get("/logout")
+def logout():
+    response = RedirectResponse(url="/", status_code=303)
+    response.delete_cookie("session")
+    return response
 
 
 @app.get("/home", response_class=HTMLResponse)
-def home(request: Request):
+def home(request: Request, session: str = Cookie(default=None)):
+    if not session or not verify_session(session):
+        return RedirectResponse(url="/", status_code=303)
     return templates.TemplateResponse(request, "home.html")
 
 
 @app.get("/scanner", response_class=HTMLResponse)
-def scanner(request: Request):
+def scanner(request: Request, session: str = Cookie(default=None)):
+    if not session or not verify_session(session):
+        return RedirectResponse(url="/", status_code=303)
     return templates.TemplateResponse(request, "detection.html")
 
 
 @app.post("/scan", response_class=HTMLResponse)
-def scan(request: Request, url: str = Form(...)):
+def scan(request: Request, url: str = Form(...), session: str = Cookie(default=None)):
+    if not session or not verify_session(session):
+        return RedirectResponse(url="/", status_code=303)
     try:
         features = extract_features(url)
         prediction, confidence = predict(features)

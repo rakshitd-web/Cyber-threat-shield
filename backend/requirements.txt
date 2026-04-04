@@ -10,3 +10,5 @@ beautifulsoup4
 python-multipart
 jinja2
 psycopg2-binary
+bcrypt
+itsdangerous
