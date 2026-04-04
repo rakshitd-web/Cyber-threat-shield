@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+from utils.brand_check import check_brand_impersonation, KNOWN_BRANDS as KNOWN_BRANDS_MAP
 import bcrypt
 import os
 
@@ -104,8 +105,6 @@ def scan(request: Request, url: str = Form(...), session: str = Cookie(default=N
     if not session or not verify_session(session):
         return RedirectResponse(url="/", status_code=303)
     try:
-        from utils.brand_check import check_brand_impersonation
-
         # Check brand impersonation first
         is_impersonating, brand = check_brand_impersonation(url)
 
