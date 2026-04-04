@@ -8,7 +8,7 @@ from utils.url_features import extract_features, get_feature_reasons
 import bcrypt
 import os
 
-from routers import fraud
+from routers import fraud, vulnerability
 from services.ml_model import predict
 from database.db import init_db, create_user, get_user
 
@@ -23,6 +23,7 @@ app.mount("/static", StaticFiles(directory="../frontend"), name="static")
 templates = Jinja2Templates(directory="../frontend")
 
 app.include_router(fraud.router, prefix="/fraud", tags=["Fraud Detection"])
+app.include_router(vulnerability.router, prefix="/vuln", tags=["Vulnerability Scanner"])
 
 
 def create_session(email: str):
