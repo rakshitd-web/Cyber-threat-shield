@@ -1,6 +1,8 @@
 import re
 import socket
 import ssl
+import whois
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 import joblib
 
@@ -27,6 +29,21 @@ def domain_exists(domain: str):
         return True
     except:
         return False
+
+
+def get_domain_age_days(domain: str):
+    try:
+        w = whois.whois(domain)
+        creation_date = w.creation_date
+        if isinstance(creation_date, list):
+            creation_date = creation_date[0]
+        if creation_date:
+            if creation_date.tzinfo is None:
+                creation_date = creation_date.replace(tzinfo=timezone.utc)
+            return (datetime.now(timezone.utc) - creation_date).days
+    except:
+        pass
+    return None
 
 
 def extract_features(url: str):
@@ -157,6 +174,7 @@ def get_feature_reasons(url: str):
         if p in path:
             reasons.append({"flag": "warning", "text": f"URL path contains suspicious keyword: '{p}'"})
 
+    # SSL certificate check
     try:
         context = ssl.create_default_context()
         with socket.create_connection((domain, 443), timeout=5) as sock:
@@ -164,5 +182,15 @@ def get_feature_reasons(url: str):
                 reasons.append({"flag": "safe", "text": "Site has a valid SSL certificate"})
     except:
         reasons.append({"flag": "danger", "text": "Site does not have a valid SSL certificate"})
+
+    # Domain age check
+    age_days = get_domain_age_days(domain)
+    if age_days is not None:
+        if age_days < 180:
+            reasons.append({"flag": "danger", "text": f"Domain is very new — only {age_days} days old (high phishing risk)"})
+        elif age_days < 365:
+            reasons.append({"flag": "warning", "text": f"Domain is relatively new — {age_days} days old"})
+        else:
+            reasons.append({"flag": "safe", "text": f"Domain is established — {age_days} days old"})
 
     return reasons

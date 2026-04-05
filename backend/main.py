@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from utils.brand_check import check_brand_impersonation, KNOWN_BRANDS as KNOWN_BRANDS_MAP
 from utils.url_features import extract_features, get_feature_reasons
+from services.threat_intel import check_virustotal, check_domain_age, follow_redirects
 from urllib.parse import urlparse
 import tldextract
 import bcrypt
@@ -27,7 +28,6 @@ templates = Jinja2Templates(directory="../frontend")
 app.include_router(fraud.router, prefix="/fraud", tags=["Fraud Detection"])
 app.include_router(vulnerability.router, prefix="/vuln", tags=["Vulnerability Scanner"])
 
-# Trusted brands — all regional variants automatically handled by tldextract
 TRUSTED_BRANDS = {
     "google", "youtube", "amazon", "facebook", "instagram",
     "twitter", "x", "microsoft", "apple", "netflix", "github",
@@ -43,13 +43,10 @@ TRUSTED_TLDS = ["edu", "gov", "ac", "edu.in", "ac.in", "gov.in", "edu.au", "ac.u
 
 
 def is_trusted_url(url: str) -> bool:
-    """Returns True if URL belongs to a trusted brand or institutional TLD."""
     try:
         ext = tldextract.extract(url)
-        # Check brand whitelist
         if ext.domain.lower() in TRUSTED_BRANDS:
             return True
-        # Check institutional TLDs
         full_domain = ext.registered_domain.lower()
         if any(full_domain.endswith(t) for t in TRUSTED_TLDS):
             return True
@@ -138,9 +135,13 @@ def scan(request: Request, url: str = Form(...), session: str = Cookie(default=N
     if not session or not verify_session(session):
         return RedirectResponse(url="/", status_code=303)
     try:
+        full_url = url if url.startswith("http") else "https://" + url
+        parsed = urlparse(full_url)
+        domain = parsed.netloc.lower()
+
         # Trusted brand/institution bypass
-        if is_trusted_url(url):
-            reasons = get_feature_reasons(url)
+        if is_trusted_url(full_url):
+            reasons = get_feature_reasons(full_url)
             return templates.TemplateResponse(request, "detection.html", {
                 "url": url,
                 "prediction": "Legitimate",
@@ -149,9 +150,46 @@ def scan(request: Request, url: str = Form(...), session: str = Cookie(default=N
                 "reasons": reasons
             })
 
-        is_impersonating, brand = check_brand_impersonation(url)
+        # --- Threat Intel Checks ---
+        vt_result = check_virustotal(full_url)
+        domain_age = check_domain_age(domain)
+        redirect_result = follow_redirects(full_url)
 
-        features = extract_features(url)
+        # Build extra reasons from threat intel
+        threat_reasons = []
+
+        # VirusTotal
+        if vt_result.get("available") and vt_result.get("flagged"):
+            threat_reasons.append({
+                "flag": "danger",
+                "text": f"VirusTotal: flagged by {vt_result['malicious']} engines as malicious, {vt_result['suspicious']} as suspicious (out of {vt_result['total']})"
+            })
+        elif vt_result.get("available") and not vt_result.get("flagged"):
+            threat_reasons.append({
+                "flag": "safe",
+                "text": f"VirusTotal: not flagged by any engine (out of {vt_result.get('total', 0)})"
+            })
+
+        # Domain age
+        if domain_age.get("available") and domain_age.get("is_new") and result == "Legitimate":
+            confidence = max(confidence, 0.70)
+
+        # Redirect chain
+        if redirect_result.get("available"):
+            if redirect_result.get("suspicious"):
+                threat_reasons.append({
+                    "flag": "danger",
+                    "text": f"URL redirects to a different domain: {redirect_result['final_url']}"
+                })
+            elif redirect_result.get("redirected"):
+                threat_reasons.append({
+                    "flag": "warning",
+                    "text": f"URL redirects {redirect_result['hops']} time(s) — final destination: {redirect_result['final_url']}"
+                })
+
+        # --- ML + Brand Check ---
+        is_impersonating, brand = check_brand_impersonation(full_url)
+        features = extract_features(full_url)
         prediction, confidence = predict(features)
         result = "Phishing" if prediction == 0 else "Legitimate"
 
@@ -161,7 +199,16 @@ def scan(request: Request, url: str = Form(...), session: str = Cookie(default=N
             confidence = max(confidence, 0.90)
             warning = f"Warning: This URL contains '{brand}' but is not the official {KNOWN_BRANDS_MAP.get(brand, brand)} domain."
 
-        reasons = get_feature_reasons(url)
+        # Force phishing if VT flagged it
+        if vt_result.get("available") and vt_result.get("flagged"):
+            result = "Phishing"
+            confidence = max(confidence, 0.95)
+
+        # Force phishing if domain is very new + other red flags
+        if domain_age.get("available") and domain_age.get("is_new") and result == "Legitimate":
+            confidence = max(confidence, 0.70)
+
+        reasons = get_feature_reasons(full_url)
 
         if is_impersonating:
             reasons.insert(0, {
@@ -169,12 +216,12 @@ def scan(request: Request, url: str = Form(...), session: str = Cookie(default=N
                 "text": f"Domain impersonates '{brand}' — not the official {KNOWN_BRANDS_MAP.get(brand, brand)} domain"
             })
 
+        # Prepend threat intel reasons
+        reasons = threat_reasons + reasons
+
         # Count red flags
         red_flags = sum(1 for r in reasons if r["flag"] == "danger")
-
-        parsed = urlparse(url if url.startswith("http") else "https://" + url)
         path = parsed.path.lower()
-        domain = parsed.netloc.lower()
 
         suspicious_paths = [
             ".php", "support", "login", "verify", "secure",
