@@ -5,9 +5,10 @@ from fastapi.staticfiles import StaticFiles
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from utils.brand_check import check_brand_impersonation, KNOWN_BRANDS as KNOWN_BRANDS_MAP
 from utils.url_features import extract_features, get_feature_reasons
+from urllib.parse import urlparse
 import bcrypt
 import os
-from urllib.parse import urlparse
+
 from routers import fraud, vulnerability
 from services.ml_model import predict
 from database.db import init_db, create_user, get_user
@@ -126,23 +127,25 @@ def scan(request: Request, url: str = Form(...), session: str = Cookie(default=N
                 "text": f"Domain impersonates '{brand}' — not the official {KNOWN_BRANDS_MAP.get(brand, brand)} domain"
             })
 
-        # Count red flags from reasons
+        # Count red flags
         red_flags = sum(1 for r in reasons if r["flag"] == "danger")
 
-        # Heuristic overrides — if model says Legitimate but multiple red flags exist
-        if result == "Legitimate":
-            parsed = urlparse(url if url.startswith("http") else "https://" + url)
-            path = parsed.path.lower()
-            domain = parsed.netloc.lower()
+        # Heuristic override
+        parsed = urlparse(url if url.startswith("http") else "https://" + url)
+        path = parsed.path.lower()
+        domain = parsed.netloc.lower()
 
-            # Suspicious path patterns
-            suspicious_paths = [
-                ".php", "support", "login", "verify", "secure",
-                "update", "account", "banking", "confirm", "signin"
-            ]
-            path_flags = sum(1 for p in suspicious_paths if p in path)
+        # Skip override for trusted institutional domains
+        trusted_tlds = ["edu", "gov", "ac", "edu.in", "ac.in", "gov.in", "edu.au", "ac.uk"]
+        is_trusted_domain = any(domain.endswith(t) for t in trusted_tlds)
 
-            # Override conditions
+        suspicious_paths = [
+            ".php", "support", "login", "verify", "secure",
+            "update", "account", "banking", "confirm", "signin"
+        ]
+        path_flags = sum(1 for p in suspicious_paths if p in path)
+
+        if not is_trusted_domain and result == "Legitimate":
             if red_flags >= 3:
                 result = "Phishing"
                 confidence = max(confidence, 0.80)
@@ -163,6 +166,7 @@ def scan(request: Request, url: str = Form(...), session: str = Cookie(default=N
         return templates.TemplateResponse(request, "detection.html", {
             "error": str(e)
         })
+
 
 @app.get("/vuln", response_class=HTMLResponse)
 def vuln_page(request: Request, session: str = Cookie(default=None)):
