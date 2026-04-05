@@ -10,8 +10,8 @@ html, body {
 
 .site-header {
     display: flex;
-    align-items: center;   /* vertically aligns logo and text */
-    gap: 10px;             /* space between logo and name */
+    align-items: center;
+    gap: 10px;
     justify-content: center;
     position: relative;
 }
@@ -26,7 +26,7 @@ html, body {
 }
 
 .logo {
-    width: 70px;           /* adjust size */
+    width: 70px;
     height: 70px;
     position: relative;
     top: -3px;
@@ -36,61 +36,34 @@ html, body {
     margin: 0;
 }
 
-body::before{
-	content: "";
-	position: fixed;
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
-	background: url("bg8.jpg") no-repeat center/cover;
-	filter: brightness(60%);
-	z-index: -1;
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: url("bg8.jpg") no-repeat center/cover;
+    filter: brightness(60%);
+    z-index: -1;
 }
 
-/*body{
-    font-family: Arial;
-    background-color: #000137;
-    text-align: center;
-    color: #e4e7ec;
-    background-image: url("bg8.jpg");
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-}*/
-
-button{
+button {
     padding: 10px 20px;
     margin: 10px;
     font-size: 16px;
     border-radius: 10px;
-    background-color: #4fd1c5/*#A8E6CF*/;
+    background-color: #4fd1c5;
     color: #000137;
     transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-button:not(:disabled):hover{
+button:not(:disabled):hover {
     transform: translateY(-2px);
-	background-color:#37b3a9;
+    background-color: #37b3a9;
     box-shadow: 0 6px 14px rgba(0,0,0,0.3);
     color: #060061;
     cursor: pointer;
-}
-
-/*
-.home-container {
-    background-color: rgba(5, 10, 45, 0.629);
-    border-radius: 10px;
-    border: 1px solid rgba(120,160,255,0.25);
-    backdrop-filter: blur(5px) ;
-    padding: 30px;
-    max-width: 1000px;
-    margin: 50px auto;
-    box-shadow: 0 12px 30px rgba(0,0,0,0.35);
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start; 
-    align-items: flex-start;               
 }
 
 button:disabled {
@@ -98,14 +71,40 @@ button:disabled {
     cursor: not-allowed;
 }
 
-.button-block {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px; 
-    padding: 10px 0px;
+h1 {
+    color: #e6c45c;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
 }
-*/
+
+h2 {
+    padding: 5px 10px;
+    margin: 0px;
+    color: #4fc5be;
+    text-align: center;
+}
+
+input {
+    display: block;
+    margin: 15px auto;
+    padding: 10px;
+    width: 230px;
+    border: 1.5px solid #c5ccd8;
+    border-radius: 6px;
+    background-color: rgba(255,255,255,0.05);
+    color: #e0e0ff;
+    transition: border-color 0.2s ease;
+}
+
+input:hover {
+    border: 1.5px solid #7fb3ff;
+}
+
+input:focus {
+    border: 1.5px solid #357ABD;
+    outline: none;
+}
+
+/* ── Containers ── */
 
 .home-container {
     background-color: rgba(5, 10, 45, 0.629);
@@ -116,29 +115,39 @@ button:disabled {
     max-width: 1000px;
     margin: 50px auto;
     box-shadow: 0 12px 30px rgba(0,0,0,0.35);
-
     display: flex;
-    flex-wrap: wrap;              /* allows next row */
-    justify-content: center; /* first two spread */
+    flex-wrap: wrap;
+    justify-content: center;
     align-items: center;
     gap: 40px;
 }
 
-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+.container {
+    background-color: rgba(5, 10, 45, 0.629);
+    border-radius: 10px;
+    border: 1px solid rgba(120,160,255,0.25);
+    backdrop-filter: blur(5px);
+    padding: 30px;
+    max-width: 1000px;
+    margin: 50px auto;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 }
+
+/* ── Button blocks ── */
 
 .button-block {
     display: flex;
     flex-direction: column;
     gap: 4px;
     padding: 10px 0px;
-    width: 45%;                   /* two items per row */
+    width: 45%;
     align-items: center;
 }
 
-/* third block centered on next line */
 .button-block:nth-child(3) {
     width: 100%;
     align-items: center;
@@ -149,61 +158,166 @@ button:disabled {
     margin: 0px;
     padding: 0px 10px;
     font-size: 0.9rem;
-    color: #e0e0e0; /* or any subtle light shade over your bg */
+    color: #e0e0e0;
     text-align: center;
 }
 
-h2{
-    padding: 5px 10px;
-    margin: 0px;
-    color: #4fc5be;
-    text-align: center;
+/* ── Header buttons ── */
+
+body .home-btn button {
+    background: rgba(0, 212, 255, 0.12);
+    border: 1px solid rgba(0, 212, 255, 0.25);
+    color: #00d4ff;
+    font-size: 15px;
+    font-weight: 545;
+    padding: 10px 16px;
+    border-radius: 8px;
+    box-shadow: 0 0 5px rgba(0, 212, 255, 0.15);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+    margin: 5px;
 }
 
-h1{
-    color: #e6c45c;
-    text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+body .home-btn button:hover {
+    background: rgba(0, 212, 255, 0.2);
+    border-color: rgba(0, 212, 255, 0.7);
+    box-shadow: 0 0 12px rgba(0, 212, 255, 0.25);
+    transform: none;
+    color: #00d4ff;
 }
 
-input{
-    display: block;
-    margin: 15px auto;
-    padding: 10px;
-    width: 230px;
-    border: 1.5px solid #c5ccd8;
-    /*border: 2px solid #bfc9d9;*/
-    border-radius: 6px;
-    /*background-color:#F5F7FA;*/
-    background-color: rgba(255,255,255,0.05);
-    color: #e0e0ff;
-    transition: border-color 0.2s ease;
+body .logout-btn button {
+    background: rgba(255, 50, 50, 0.18);
+    border: 1px solid rgba(255, 50, 50, 0.25);
+    color: #ff6b6b;
+    font-size: 15px;
+    font-weight: 545;
+    padding: 10px 16px;
+    border-radius: 8px;
+    box-shadow: 0 0 8px rgba(255, 50, 50, 0.3);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+    margin: 5px;
 }
 
-input:hover
-{
-    border: 1.5px solid #7fb3ff;
+body .logout-btn button:hover {
+    background: rgba(255, 50, 50, 0.2);
+    border-color: rgba(255, 50, 50, 0.7);
+    box-shadow: 0 0 14px rgba(255, 50, 50, 0.4);
+    transform: none;
+    color: #ff6b6b;
 }
 
-input:focus{
-    border: 1.5px solid #357ABD;
-    outline: none;
-}
+/* ── Status colours (shared) ── */
 
-.container {
-     background-color: rgba(5, 10, 45, 0.629);
-    border-radius: 10px;
-    border: 1px solid rgba(120,160,255,0.25);
-    backdrop-filter: blur(5px);
-    padding: 30px;
-    max-width: 1000px;
-    margin: 50px auto;
-    box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+.status-safe    { background: rgba(50, 255, 100, 0.06);  color: #51cf66; border-color: #51cf66; }
+.status-danger  { background: rgba(255, 50, 50, 0.06);   color: #ff6b6b; border-color: #ff6b6b; }
+.status-warning { background: rgba(255, 200, 50, 0.06);  color: #fcc419; border-color: #fcc419; }
+.status-info    { background: rgba(100, 150, 255, 0.06); color: #74c0fc; border-color: #74c0fc; }
 
+/* ── Vulnerability page result ── */
+
+.result {
+    border-top: 1px solid rgba(255, 255, 255, 0.09);
+    padding-top: 2px;
+    margin-top: 10px;
+    width: 100%;
     display: flex;
     flex-direction: column;
-    justify-content: center; /* vertical centering */
-    align-items: center;     /* horizontal centering */
+    align-items: stretch;
+    justify-content: flex-start;
 }
+
+.result p {
+    margin: 0px;
+    padding: 10px 0px;
+    text-align: left;
+}
+
+/* ── Scan result (phishing page) ── */
+
+.scan-result {
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 10px;
+    border: 1px solid rgba(120, 160, 255, 0.15);
+    padding: 20px 24px;
+    margin-top: 20px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.scan-result p {
+    margin: 0px;
+    padding: 10px 0px;
+    text-align: left;
+    font-size: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    line-height: 1.5;
+}
+
+.scan-result p:last-of-type {
+    border-bottom: none;
+}
+
+.scan-result .url-display {
+    text-align: center;
+    font-size: 15px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    word-break: break-all;
+}
+
+.scan-result .result-summary {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 10px 0px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 14px;
+}
+
+.scan-result .result-summary p {
+    border-bottom: none;
+    padding: 4px 10px;
+    font-size: 15px;
+}
+
+.scan-result .warning-msg {
+    text-align: center;
+    padding: 10px 16px;
+    background: rgba(255, 200, 50, 0.08);
+    border: 1px solid rgba(255, 200, 50, 0.2);
+    border-radius: 6px;
+    margin: 8px 0px;
+    border-bottom: none;
+}
+
+.scan-result .analysis-label {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 8px;
+    border-bottom: none;
+    padding: 10px 0px 4px 0px;
+}
+
+.scan-result .reason-list {
+    list-style: none;
+    padding: 0;
+    margin-top: 0px;
+    text-align: left;
+}
+
+.scan-result .reason-list li {
+    padding: 10px 14px;
+    margin: 6px 0;
+    border-radius: 4px;
+    font-size: 14px;
+    border-left: 3px solid;
+}
+
+/* ── Dropdown ── */
 
 .dropdown-wrapper {
     position: relative;
@@ -242,15 +356,15 @@ input:focus{
     top: 100%;
     left: 0;
     right: 0;
-    background: rgba(5, 10, 45, 0.85);       
+    background: rgba(5, 10, 45, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 6px;
     z-index: 100;
     max-height: 320px;
     overflow-y: auto;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(12px);           
-    -webkit-backdrop-filter: blur(12px);      
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
 
 .dropdown-menu.open {
@@ -324,6 +438,8 @@ input:focus{
     color: #00d4ff;
 }
 
+/* ── Category blocks (vulnerability page) ── */
+
 .category-block {
     margin-top: 4px;
 }
@@ -341,7 +457,7 @@ input:focus{
     border-radius: 6px;
     background: rgba(0, 212, 255, 0.05);
     border: none;
-    border-left: 3px solid #00d4ff;   /* ← matches your list items */
+    border-left: 3px solid #00d4ff;
     user-select: none;
     width: 100%;
     box-sizing: border-box;
@@ -350,15 +466,6 @@ input:focus{
 
 .category-block h3:hover {
     background: rgba(0, 212, 255, 0.08);
-}
-
-.vuln-list {
-    list-style: none;
-    padding: 0;
-    display: none;        /* hidden by default */
-    flex-direction: column;
-    gap: 2px;
-    margin-top: 2px;
 }
 
 .category-block h3::after {
@@ -371,6 +478,14 @@ input:focus{
     transform: rotate(-180deg);
 }
 
+.vuln-list {
+    list-style: none;
+    padding: 0;
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 2px;
+}
 
 .category-block.open .vuln-list {
     display: flex;
@@ -388,67 +503,5 @@ input:focus{
     border-radius: 4px;
     font-size: 14px;
     text-align: left;
-    border-left: 3px solid;   /* ← keep this for status colour */
-}
-
-.status-safe    { background: rgba(50, 255, 100, 0.06);  color: #51cf66; border-color: #51cf66; }
-.status-danger  { background: rgba(255, 50, 50, 0.06);   color: #ff6b6b; border-color: #ff6b6b; }
-.status-warning { background: rgba(255, 200, 50, 0.06);  color: #fcc419; border-color: #fcc419; }
-.status-info    { background: rgba(100, 150, 255, 0.06); color: #74c0fc; border-color: #74c0fc; }
-
-.result {
-    border-top: 1px solid rgba(255, 255, 255, 0.09);
-    padding-top: 2px;
-    margin-top: 10px;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: flex-start;
-}
-
-body .home-btn button {
-    background: rgba(0, 212, 255, 0.12);
-    background-color: rgba(0, 212, 255, 0.12);
-    border: 1px solid rgba(0, 212, 255, 0.25);
-    color: #00d4ff;              /* cyan text instead of white */
-    font-size: 15px;
-    font-weight: 545;
-    padding: 10px 16px;
-    border-radius: 8px;
-    box-shadow: 0 0 5px rgba(0, 212, 255, 0.15);
-    transition: background-color 0.2s ease, border-color 0.2s ease;
-    margin:5px;
-}
-
-body .home-btn button:hover {
-    background: rgba(0, 212, 255, 0.2);
-    background-color: rgba(0, 212, 255, 0.2);
-    border-color: rgba(0, 212, 255, 0.7);
-    box-shadow: 0 0 12px rgba(0, 212, 255, 0.25);
-    transform: none;
-    color: #00d4ff;
-}
-
-body .logout-btn button {
-    background: rgba(255, 50, 50, 0.12);
-    background-color: rgba(255, 50, 50, 0.18);
-    border: 1px solid rgba(255, 50, 50, 0.25);
-    color: #ff6b6b;
-    font-size: 15px;
-    font-weight: 545;
-    padding: 10px 16px;
-    border-radius: 8px;
-    box-shadow: 0 0 8px rgba(255, 50, 50, 0.3);
-    transition: background-color 0.2s ease, border-color 0.2s ease;
-    margin: 5px;
-}
-
-body .logout-btn button:hover {
-    background: rgba(255, 50, 50, 0.2);
-    background-color: rgba(255, 50, 50, 0.2);
-    border-color: rgba(255, 50, 50, 0.7);
-    box-shadow: 0 0 14px rgba(255, 50, 50, 0.4);
-    transform: none;
-    color: #ff6b6b;
+    border-left: 3px solid;
 }
