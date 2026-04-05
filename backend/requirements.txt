@@ -17,3 +17,4 @@ supabase
 reportlab
 beautifulsoup4
 python-dotenv
+psycopg2-binary
