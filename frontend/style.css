@@ -226,12 +226,6 @@ body .logout-btn button:hover {
     justify-content: flex-start;
 }
 
-.result p {
-    margin: 0px;
-    padding: 10px 0px;
-    text-align: left;
-}
-
 /* ── Scan result (phishing page) ── */
 
 .scan-result {
