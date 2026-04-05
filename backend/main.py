@@ -108,6 +108,22 @@ def scan(request: Request, url: str = Form(...), session: str = Cookie(default=N
         return RedirectResponse(url="/", status_code=303)
     try:
         is_impersonating, brand = check_brand_impersonation(url)
+        
+        # Whitelist trusted domains — bypass model entirely
+        trusted_tlds = ["edu", "gov", "ac", "edu.in", "ac.in", "gov.in", "edu.au", "ac.uk", "mil"]
+        parsed_check = urlparse(url if url.startswith("http") else "https://" + url)
+        domain_check = parsed_check.netloc.lower()
+        is_trusted_domain = any(domain_check.endswith(t) for t in trusted_tlds)
+
+        if is_trusted_domain:
+            reasons = get_feature_reasons(url)
+            return templates.TemplateResponse(request, "detection.html", {
+                "url": url,
+                "prediction": "Legitimate",
+                "confidence": 0.99,
+                "warning": None,
+                "reasons": reasons
+            })
 
         features = extract_features(url)
         prediction, confidence = predict(features)
