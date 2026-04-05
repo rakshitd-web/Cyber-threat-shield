@@ -6,6 +6,7 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from utils.brand_check import check_brand_impersonation, KNOWN_BRANDS as KNOWN_BRANDS_MAP
 from utils.url_features import extract_features, get_feature_reasons
 from urllib.parse import urlparse
+import tldextract
 import bcrypt
 import os
 
@@ -25,6 +26,36 @@ templates = Jinja2Templates(directory="../frontend")
 
 app.include_router(fraud.router, prefix="/fraud", tags=["Fraud Detection"])
 app.include_router(vulnerability.router, prefix="/vuln", tags=["Vulnerability Scanner"])
+
+# Trusted brands — all regional variants automatically handled by tldextract
+TRUSTED_BRANDS = {
+    "google", "youtube", "amazon", "facebook", "instagram",
+    "twitter", "x", "microsoft", "apple", "netflix", "github",
+    "wikipedia", "linkedin", "reddit", "stackoverflow", "whatsapp",
+    "telegram", "dropbox", "zoom", "slack", "spotify", "adobe",
+    "paypal", "ebay", "yahoo", "bing", "twitch", "pinterest",
+    "flipkart", "myntra", "zomato", "swiggy", "paytm", "naukri",
+    "indiamart", "makemytrip", "irctc", "sbi", "hdfcbank", "icicibank",
+    "axisbank", "kotak", "npci", "upi", "bhim"
+}
+
+TRUSTED_TLDS = ["edu", "gov", "ac", "edu.in", "ac.in", "gov.in", "edu.au", "ac.uk", "mil"]
+
+
+def is_trusted_url(url: str) -> bool:
+    """Returns True if URL belongs to a trusted brand or institutional TLD."""
+    try:
+        ext = tldextract.extract(url)
+        # Check brand whitelist
+        if ext.domain.lower() in TRUSTED_BRANDS:
+            return True
+        # Check institutional TLDs
+        full_domain = ext.registered_domain.lower()
+        if any(full_domain.endswith(t) for t in TRUSTED_TLDS):
+            return True
+    except:
+        pass
+    return False
 
 
 def create_session(email: str):
@@ -107,15 +138,8 @@ def scan(request: Request, url: str = Form(...), session: str = Cookie(default=N
     if not session or not verify_session(session):
         return RedirectResponse(url="/", status_code=303)
     try:
-        is_impersonating, brand = check_brand_impersonation(url)
-        
-        # Whitelist trusted domains — bypass model entirely
-        trusted_tlds = ["edu", "gov", "ac", "edu.in", "ac.in", "gov.in", "edu.au", "ac.uk", "mil"]
-        parsed_check = urlparse(url if url.startswith("http") else "https://" + url)
-        domain_check = parsed_check.netloc.lower()
-        is_trusted_domain = any(domain_check.endswith(t) for t in trusted_tlds)
-
-        if is_trusted_domain:
+        # Trusted brand/institution bypass
+        if is_trusted_url(url):
             reasons = get_feature_reasons(url)
             return templates.TemplateResponse(request, "detection.html", {
                 "url": url,
@@ -124,6 +148,8 @@ def scan(request: Request, url: str = Form(...), session: str = Cookie(default=N
                 "warning": None,
                 "reasons": reasons
             })
+
+        is_impersonating, brand = check_brand_impersonation(url)
 
         features = extract_features(url)
         prediction, confidence = predict(features)
@@ -146,14 +172,9 @@ def scan(request: Request, url: str = Form(...), session: str = Cookie(default=N
         # Count red flags
         red_flags = sum(1 for r in reasons if r["flag"] == "danger")
 
-        # Heuristic override
         parsed = urlparse(url if url.startswith("http") else "https://" + url)
         path = parsed.path.lower()
         domain = parsed.netloc.lower()
-
-        # Skip override for trusted institutional domains
-        trusted_tlds = ["edu", "gov", "ac", "edu.in", "ac.in", "gov.in", "edu.au", "ac.uk"]
-        is_trusted_domain = any(domain.endswith(t) for t in trusted_tlds)
 
         suspicious_paths = [
             ".php", "support", "login", "verify", "secure",
@@ -161,7 +182,7 @@ def scan(request: Request, url: str = Form(...), session: str = Cookie(default=N
         ]
         path_flags = sum(1 for p in suspicious_paths if p in path)
 
-        if not is_trusted_domain and result == "Legitimate":
+        if result == "Legitimate":
             if red_flags >= 3:
                 result = "Phishing"
                 confidence = max(confidence, 0.80)
