@@ -3,35 +3,8 @@
 <head>
     <title>Phishing Detection</title>
     <link rel="stylesheet" href="/static/style.css">
-    <style>
-        .reason-list {
-            list-style: none;
-            padding: 0;
-            margin-top: 12px;
-            text-align: left;
-        }
-        .reason-list li {
-            padding: 6px 10px;
-            margin: 4px 0;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        .reason-danger {
-            background-color: rgba(255, 50, 50, 0.15);
-            color: #ff6b6b;
-        }
-        .reason-safe {
-            background-color: rgba(50, 255, 100, 0.15);
-            color: #51cf66;
-        }
-        .reason-warning {
-            background-color: rgba(255, 200, 50, 0.15);
-            color: #fcc419;
-        }
-    </style>
 </head>
 <body>
-
 <div class="site-header">
     <h1 class="site-name">Phishing URL Detection</h1>
     <div class="header-actions">
@@ -43,41 +16,42 @@
         </div>
     </div>
 </div>
-
 <div class="container">
-
     <form method="post" action="/scan">
         <input type="text" name="url" placeholder="Enter URL here" required>
         <button type="submit">Scan</button>
     </form>
 
     {% if error %}
-        <div class="result">
+        <div class="scan-result">
             <p style="color:red;"><strong>Error:</strong> {{ error }}</p>
         </div>
     {% endif %}
 
     {% if prediction %}
-        <div class="result">
-            <p><strong>URL:</strong> {{ url }}</p>
-            <p><strong>Prediction:</strong>
-                {% if prediction == 'Phishing' %}
-                    <span style="color: red;">{{ prediction }}</span>
-                {% else %}
-                    <span style="color: green;">{{ prediction }}</span>
-                {% endif %}
-            </p>
-            <p><strong>Confidence:</strong> {{ confidence }}</p>
+        <div class="scan-result">
+            <p class="url-display"><strong>URL:</strong> {{ url }}</p>
+
+            <div class="result-summary">
+                <p><strong>Prediction:</strong>
+                    {% if prediction == 'Phishing' %}
+                        <span style="color: #ff6b6b;">{{ prediction }}</span>
+                    {% else %}
+                        <span style="color: #51cf66;">{{ prediction }}</span>
+                    {% endif %}
+                </p>
+                <p><strong>Confidence:</strong> {{ confidence }}</p>
+            </div>
 
             {% if warning %}
-                <p style="color: orange;"><strong>⚠ {{ warning }}</strong></p>
+                <p class="warning-msg" style="color: orange;">⚠ {{ warning }}</p>
             {% endif %}
 
             {% if reasons %}
-                <p><strong>Analysis:</strong></p>
+                <p class="analysis-label">Analysis</p>
                 <ul class="reason-list">
                     {% for reason in reasons %}
-                        <li class="reason-{{ reason.flag }}">
+                        <li class="status-{{ reason.flag }}">
                             {% if reason.flag == 'danger' %}⚠{% elif reason.flag == 'safe' %}✅{% else %}ℹ{% endif %}
                             {{ reason.text }}
                         </li>
@@ -86,8 +60,6 @@
             {% endif %}
         </div>
     {% endif %}
-
 </div>
-
 </body>
 </html>
