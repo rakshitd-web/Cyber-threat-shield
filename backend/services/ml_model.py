@@ -6,10 +6,7 @@ model = joblib.load("models/model.pkl")
 feature_order = joblib.load("models/feature_order.pkl")
 
 def predict(features):
-
-    # convert list → dataframe with correct column names
     X = pd.DataFrame([features], columns=feature_order)
-
     prediction = model.predict(X)[0]
 
     if hasattr(model, "predict_proba"):

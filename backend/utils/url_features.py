@@ -1,8 +1,6 @@
 import re
 import socket
 import ssl
-import requests
-from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 import joblib
 
@@ -46,7 +44,6 @@ def extract_features(url: str):
 
     features = {}
 
-    # URL based features only
     features["URLLength"] = len(url)
     features["DomainLength"] = len(domain)
     features["IsDomainIP"] = 1 if re.match(r"\d+\.\d+\.\d+\.\d+", domain) else 0
@@ -60,14 +57,14 @@ def extract_features(url: str):
     special = sum(not c.isalnum() and c not in [".", "/", ":"] for c in url)
 
     features["NoOfLettersInURL"] = letters
-    features["LetterRatioInURL"] = round(letters / len(url), 4) if url else 0
+    features["LetterRatioInURL"] = round(letters / len(url), 4)
     features["NoOfDegitsInURL"] = digits
-    features["DegitRatioInURL"] = round(digits / len(url), 4) if url else 0
+    features["DegitRatioInURL"] = round(digits / len(url), 4)
     features["NoOfEqualsInURL"] = url.count("=")
     features["NoOfQMarkInURL"] = url.count("?")
     features["NoOfAmpersandInURL"] = url.count("&")
     features["NoOfOtherSpecialCharsInURL"] = special
-    features["SpacialCharRatioInURL"] = round(special / len(url), 4) if url else 0
+    features["SpacialCharRatioInURL"] = round(special / len(url), 4)
 
     parts = domain.split(".")
     features["NoOfSubDomain"] = max(0, len(parts) - 2)
@@ -75,11 +72,31 @@ def extract_features(url: str):
     obfuscated = len(re.findall(r"%[0-9a-fA-F]{2}", url))
     features["HasObfuscation"] = 1 if obfuscated > 0 else 0
     features["NoOfObfuscatedChar"] = obfuscated
-    features["ObfuscationRatio"] = round(obfuscated / len(url), 4) if url else 0
+    features["ObfuscationRatio"] = round(obfuscated / len(url), 4)
 
     features["CharContinuationRate"] = round(letters / (letters + digits + 1), 4)
     features["URLCharProb"] = round(letters / (len(url) + 1), 4)
     features["IsHTTPS"] = 1 if url.startswith("https://") else 0
+
+    # SSL check
+    try:
+        context = ssl.create_default_context()
+        with socket.create_connection((domain, 443), timeout=3) as sock:
+            with context.wrap_socket(sock, server_hostname=domain) as ssock:
+                features["HasValidSSL"] = 1
+    except:
+        features["HasValidSSL"] = 0
+
+    features["HasHyphen"] = 1 if "-" in domain else 0
+
+    suspicious_tlds = ["xyz", "top", "click", "tk", "ml", "ga", "cf", "gq", "pw"]
+    features["HasSuspiciousTLD"] = 1 if tld in suspicious_tlds else 0
+
+    features["IsShortened"] = 1 if re.search(r"bit\.ly|goo\.gl|tinyurl|ow\.ly|t\.co", url) else 0
+
+    features["HasAtSymbol"] = 1 if "@" in url else 0
+
+    features["HasDoubleSlash"] = 1 if url.count("//") > 1 else 0
 
     feature_order = joblib.load("models/feature_order.pkl")
     return [features.get(f, 0) for f in feature_order]
