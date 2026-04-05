@@ -110,7 +110,7 @@ def scan(request: Request, url: str = Form(...), session: str = Cookie(default=N
 
         features = extract_features(url)
         prediction, confidence = predict(features)
-        result = "Phishing" if prediction == 1 else "Legitimate"
+        result = "Phishing" if prediction == 0 else "Legitimate"
 
         warning = None
         if is_impersonating:
