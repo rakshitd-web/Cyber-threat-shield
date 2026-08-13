@@ -51,7 +51,8 @@ COMMON_SUBDOMAINS = [
 def check_security_headers(url, response):
     results = []
     for header in SECURITY_HEADERS:
-        if header.lower() in [h.lower() for h in response.headers]:
+        response_headers = {h.lower() for h in response.headers}
+        if header.lower() in response_headers:
             results.append({"status": "safe", "text": f"Header '{header}' is present"})
         else:
             results.append({"status": "danger", "text": f"Missing security header: '{header}'"})
@@ -415,23 +416,377 @@ def run_scan(url: str, checks: list):
     return scan_results
 
 
-def generate_txt_report(url: str, scan_results: dict) -> str:
-    lines = []
-    lines.append("=" * 60)
-    lines.append("       CYBERTHREAT SHIELD - VULNERABILITY REPORT")
-    lines.append("=" * 60)
-    lines.append(f"URL: {url}")
-    lines.append(f"Scan Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    lines.append("=" * 60)
+# ---------------------------------------------------------------------------
+# Finding metadata
+# ---------------------------------------------------------------------------
+
+SEVERITY_RANK = {
+    "Critical": 4,
+    "High": 3,
+    "Medium": 2,
+    "Low": 1,
+    "Info": 0,
+}
+
+FINDING_METADATA = {
+    # Security headers
+    "Missing security header: 'Content-Security-Policy'": {
+        "severity": "Medium",
+        "description": "Content-Security-Policy (CSP) restricts the sources from which browsers may load and execute content.",
+        "attack": "If another client-side weakness such as XSS exists, the absence of CSP removes an important browser-side defense and can make malicious content execution easier.",
+        "fix": "Configure a restrictive Content-Security-Policy appropriate for the application and test it before enforcing it."
+    },
+    "Missing security header: 'X-Frame-Options'": {
+        "severity": "Medium",
+        "description": "X-Frame-Options controls whether a page can be embedded in a frame by another site.",
+        "attack": "An attacker may embed the application in a malicious page and attempt to trick a user into interacting with the hidden or disguised application.",
+        "fix": "Set X-Frame-Options to DENY or SAMEORIGIN, or use the CSP frame-ancestors directive."
+    },
+    "Missing security header: 'X-XSS-Protection'": {
+        "severity": "Low",
+        "description": "This legacy header controlled older browser XSS filtering behavior and is largely obsolete in modern browsers.",
+        "attack": "The absence of this legacy header generally does not create a direct modern-browser vulnerability, but it indicates incomplete security hardening.",
+        "fix": "Prioritize a strong Content-Security-Policy and secure output encoding. Do not rely on X-XSS-Protection as the primary XSS defense."
+    },
+    "Missing security header: 'Strict-Transport-Security'": {
+        "severity": "Medium",
+        "description": "HSTS instructs browsers to use HTTPS for future connections to the domain.",
+        "attack": "Without HSTS, a user can potentially be downgraded to an insecure HTTP connection during an interception or network attack.",
+        "fix": "After confirming HTTPS works correctly, configure Strict-Transport-Security with an appropriate max-age and consider includeSubDomains."
+    },
+    "Missing security header: 'X-Content-Type-Options'": {
+        "severity": "Low",
+        "description": "X-Content-Type-Options with nosniff prevents browsers from MIME-sniffing certain responses.",
+        "attack": "In some application configurations, MIME sniffing can cause content to be interpreted differently from the declared type, increasing the impact of content injection weaknesses.",
+        "fix": "Set X-Content-Type-Options: nosniff."
+    },
+    "Missing security header: 'Referrer-Policy'": {
+        "severity": "Low",
+        "description": "Referrer-Policy controls how much referrer information is sent with outbound requests.",
+        "attack": "An overly permissive referrer policy can leak URL information, including sensitive path or query data, to third-party destinations.",
+        "fix": "Use a restrictive policy such as strict-origin-when-cross-origin or another policy appropriate for the application."
+    },
+    "Missing security header: 'Permissions-Policy'": {
+        "severity": "Low",
+        "description": "Permissions-Policy restricts access to browser capabilities such as camera, microphone, and geolocation.",
+        "attack": "If powerful browser features are unnecessarily available to embedded or application content, the impact of another compromise may be increased.",
+        "fix": "Define a restrictive Permissions-Policy and explicitly allow only features the application requires."
+    },
+
+    # SSL / TLS
+    "SSL certificate verification failed": {
+        "severity": "High",
+        "description": "The TLS certificate could not be verified by the scanner.",
+        "attack": "Users may be exposed to connection interception or certificate trust failures if the deployment is incorrectly configured.",
+        "fix": "Install a valid certificate issued by a trusted certificate authority and configure the complete certificate chain correctly."
+    },
+    "SSL certificate expires": {
+        "severity": "Medium",
+        "description": "The TLS certificate is approaching expiration.",
+        "attack": "An expired certificate can cause browser trust errors and may interrupt secure access to the application.",
+        "fix": "Renew the certificate before expiration and automate certificate renewal where practical."
+    },
+    "SSL check failed": {
+        "severity": "Medium",
+        "description": "The scanner could not complete the TLS configuration check.",
+        "attack": "A failed check is not proof of a vulnerability, but it can indicate a TLS configuration or connectivity problem that should be investigated.",
+        "fix": "Verify that TCP/443 is reachable and that the server presents a valid certificate and supported TLS configuration."
+    },
+
+    # Network exposure
+    "potentially dangerous": {
+        "severity": "High",
+        "description": "A commonly sensitive network service is reachable from the scanner.",
+        "attack": "An exposed service can increase the attack surface. If the service is vulnerable, weakly authenticated, or misconfigured, an attacker may attempt unauthorized access or exploitation.",
+        "fix": "Close unnecessary ports, restrict administrative services with firewall rules or network controls, and require strong authentication and secure configurations."
+    },
+    "Port 22 (SSH) is open": {
+        "severity": "Low",
+        "description": "SSH is reachable on the tested host.",
+        "attack": "Exposed SSH increases the remotely reachable attack surface and can be targeted with credential attacks or exploitation of vulnerable server software.",
+        "fix": "Restrict SSH access to trusted networks where possible, disable password authentication when appropriate, use key-based authentication, and keep the service patched."
+    },
+
+    # Sensitive paths
+    "Sensitive path accessible": {
+        "severity": "High",
+        "description": "A commonly sensitive administrative, configuration, backup, source-control, or documentation path returned HTTP 200.",
+        "attack": "An attacker can enumerate exposed resources and may retrieve administrative interfaces, configuration data, backups, source code, or API documentation.",
+        "fix": "Remove unnecessary public resources and protect administrative/configuration endpoints with authentication and authorization. Do not expose secrets or source-control directories."
+    },
+    "Path exists but forbidden": {
+        "severity": "Low",
+        "description": "A commonly sensitive path exists but returned HTTP 403.",
+        "attack": "The path itself is not publicly accessible, but its existence can reveal application structure and provide an enumeration target.",
+        "fix": "Keep sensitive resources inaccessible from untrusted users and ensure directory or endpoint discovery does not expose unnecessary information."
+    },
+
+    # Cookies
+    "missing Secure flag": {
+        "severity": "Medium",
+        "description": "The cookie is not marked Secure, so browsers may send it over non-HTTPS connections.",
+        "attack": "If the cookie is sent over an insecure connection, an attacker able to observe network traffic may capture it.",
+        "fix": "Set the Secure attribute on authentication and other sensitive cookies and enforce HTTPS."
+    },
+    "missing HttpOnly flag": {
+        "severity": "High",
+        "description": "The cookie is accessible to client-side scripts because HttpOnly is not set.",
+        "attack": "If malicious JavaScript executes in the browser, it may be able to read the cookie and potentially expose session information.",
+        "fix": "Set HttpOnly on sensitive cookies, especially session cookies, unless client-side access is explicitly required."
+    },
+
+    # Information disclosure
+    "Server header exposes info": {
+        "severity": "Low",
+        "description": "The Server response header reveals server implementation information.",
+        "attack": "Version or product information can help an attacker fingerprint the technology stack and prioritize known vulnerabilities.",
+        "fix": "Minimize unnecessary server-identifying response headers and keep the underlying server software patched."
+    },
+    "X-Powered-By header exposes info": {
+        "severity": "Low",
+        "description": "The X-Powered-By response header reveals application framework or runtime information.",
+        "attack": "Technology disclosure can make fingerprinting and vulnerability enumeration easier.",
+        "fix": "Remove or suppress X-Powered-By where practical."
+    },
+
+    # Domain / DNS / email
+    "newly registered": {
+        "severity": "Info",
+        "description": "The domain was registered recently.",
+        "attack": "Domain age alone is not a vulnerability. Newly registered domains can, however, receive additional scrutiny because attackers sometimes use short-lived infrastructure.",
+        "fix": "No direct remediation is required. Treat domain age as contextual information rather than proof of compromise."
+    },
+    "DNSSEC is not enabled": {
+        "severity": "Medium",
+        "description": "DNSSEC was not detected for the domain.",
+        "attack": "Without DNSSEC validation, DNS integrity protections are reduced and DNS responses can be more exposed to certain spoofing or cache-poisoning scenarios.",
+        "fix": "Deploy DNSSEC correctly through the authoritative DNS provider and registrar, and verify the DS/DNSKEY chain."
+    },
+    "No SPF record": {
+        "severity": "Medium",
+        "description": "No SPF record was detected for the domain.",
+        "attack": "Attackers may attempt to send email that appears to originate from the domain. SPF alone is not sufficient to prevent all spoofing.",
+        "fix": "Publish an SPF record listing authorized sending infrastructure and combine it with DKIM and DMARC."
+    },
+    "No DMARC record": {
+        "severity": "Medium",
+        "description": "No DMARC policy was detected for the domain.",
+        "attack": "Attackers may spoof the domain in email, increasing the likelihood of phishing or impersonation reaching recipients.",
+        "fix": "Publish a DMARC record and progressively move toward an enforcement policy such as quarantine or reject after validating legitimate senders."
+    },
+    "No DKIM record": {
+        "severity": "Low",
+        "description": "No DKIM record was found at the default selector checked by this scanner.",
+        "attack": "Without DKIM, recipients may have fewer cryptographic signals to verify that messages were authorized by the domain.",
+        "fix": "Configure DKIM for the actual mail provider and publish the provider's selector. Note that this scanner checks only the default selector."
+    },
+
+    # HTTP methods
+    "Dangerous HTTP method enabled": {
+        "severity": "Medium",
+        "description": "The server advertises an HTTP method that is not normally required by many public web applications.",
+        "attack": "Unnecessary methods can expand the attack surface. The actual impact depends on server configuration, authentication, and endpoint behavior.",
+        "fix": "Disable methods that are not required and restrict required methods to authenticated or authorized endpoints where appropriate."
+    },
+
+    # Redirects
+    "Long redirect chain": {
+        "severity": "Low",
+        "description": "The requested URL follows multiple redirects before reaching its final destination.",
+        "attack": "Long or unexpected redirect chains can make destination analysis harder and may be abused to conceal malicious redirects.",
+        "fix": "Remove unnecessary redirects and verify that every redirect destination is trusted and intentional."
+    },
+
+    # Content sniffing / clickjacking
+    "X-Content-Type-Options header missing": {
+        "severity": "Low",
+        "description": "The response does not explicitly disable MIME sniffing.",
+        "attack": "In certain content-injection configurations, browser MIME sniffing can cause resources to be interpreted as a different content type.",
+        "fix": "Set X-Content-Type-Options: nosniff and return correct Content-Type values."
+    },
+    "No clickjacking protection found": {
+        "severity": "Medium",
+        "description": "The page does not provide a detected control preventing framing by other origins.",
+        "attack": "An attacker may frame the application inside a malicious page and attempt to trick users into interacting with the framed interface.",
+        "fix": "Set X-Frame-Options or, preferably for modern policies, CSP frame-ancestors."
+    },
+
+    # Subdomains / robots
+    "Subdomain found": {
+        "severity": "Low",
+        "description": "A commonly named subdomain resolves for the domain.",
+        "attack": "Additional subdomains increase the exposed attack surface and may contain development, staging, administrative, or legacy services.",
+        "fix": "Inventory all subdomains, remove unused hosts, and ensure development or administrative environments are access-controlled."
+    },
+    "publicly accessible — may expose sensitive paths": {
+        "severity": "Info",
+        "description": "robots.txt or sitemap.xml is publicly accessible.",
+        "attack": "These files are normally public, but robots.txt can reveal paths that administrators intended search engines not to crawl.",
+        "fix": "Do not place secrets in robots.txt or sitemap.xml. Protect sensitive resources using authentication and authorization rather than robots.txt."
+    },
+
+    # Rate limiting
+    "No rate limiting headers detected": {
+        "severity": "Medium",
+        "description": "The response did not expose common rate-limiting headers.",
+        "attack": "Lack of visible rate-limit headers does not prove that rate limiting is absent, but insufficient request controls can make credential attacks and automated abuse easier.",
+        "fix": "Implement server-side rate limiting appropriate to authentication, API, and resource-intensive endpoints. Return standard rate-limit information where useful."
+    },
+
+    # Mixed content
+    "Mixed content found": {
+        "severity": "Medium",
+        "description": "An HTTPS page references a resource using HTTP.",
+        "attack": "An attacker able to interfere with the insecure HTTP resource may modify content delivered to an otherwise HTTPS page.",
+        "fix": "Load all page resources over HTTPS and update hard-coded HTTP URLs or use HTTPS-compatible resource URLs."
+    },
+}
+
+
+def _metadata_for(text: str, status: str) -> dict:
+    """
+    Match a finding to remediation metadata using exact prefixes/keywords.
+    The matching is intentionally deterministic and avoids expensive NLP/ML
+    for a small, fixed scanner rule set.
+    """
+    for key, metadata in FINDING_METADATA.items():
+        if key in text:
+            return metadata
+
+    # Safe/info messages do not require vulnerability remediation details.
+    if status == "safe":
+        return {
+            "severity": "Info",
+            "description": "No security weakness was detected by this check.",
+            "attack": "No attack scenario is indicated by this finding.",
+            "fix": "No remediation is required based on this result."
+        }
+
+    if status == "info":
+        return {
+            "severity": "Info",
+            "description": "Informational result from the security scan.",
+            "attack": "This result is not by itself evidence of a vulnerability.",
+            "fix": "Review the result in the context of the application's security requirements."
+        }
+
+    if status == "warning":
+        return {
+            "severity": "Low",
+            "description": "The scanner identified a condition that may warrant review.",
+            "attack": "The condition may contribute to attack surface or information disclosure depending on the application configuration.",
+            "fix": "Review the finding and apply appropriate hardening if the condition is unnecessary."
+        }
+
+    return {
+        "severity": "Medium",
+        "description": "The scanner identified a potentially security-relevant condition.",
+        "attack": "An attacker may attempt to abuse the condition depending on the application's configuration and other controls.",
+        "fix": "Review the affected component and apply the recommended security hardening."
+    }
+
+
+def enrich_scan_results(scan_results: dict) -> dict:
+    """
+    Add severity and remediation context to every scanner finding.
+    Keeps the original status/text fields for frontend compatibility.
+    """
+    enriched = {}
 
     for category, results in scan_results.items():
-        lines.append(f"\n[ {category} ]")
-        lines.append("-" * 40)
-        for r in results:
-            icon = "✅" if r["status"] == "safe" else ("⚠" if r["status"] == "warning" else ("ℹ" if r["status"] == "info" else "❌"))
-            lines.append(f"  {icon} {r['text']}")
+        enriched[category] = []
 
-    lines.append("\n" + "=" * 60)
-    lines.append("End of Report")
-    lines.append("=" * 60)
+        for result in results:
+            metadata = _metadata_for(result["text"], result["status"])
+            enriched[category].append({
+                **result,
+                "severity": metadata["severity"],
+                "description": metadata["description"],
+                "attack": metadata["attack"],
+                "fix": metadata["fix"],
+            })
+
+    return enriched
+
+
+def get_severity_summary(scan_results: dict) -> dict:
+    summary = {severity: 0 for severity in SEVERITY_RANK}
+
+    for results in scan_results.values():
+        for result in results:
+            severity = result.get("severity", "Info")
+            summary[severity] = summary.get(severity, 0) + 1
+
+    return summary
+
+
+def generate_txt_report(url: str, scan_results: dict) -> str:
+    """
+    Generate a detailed text report containing:
+    - finding
+    - severity
+    - explanation
+    - general attack scenario
+    - recommended remediation
+    - severity summary
+    """
+    lines = [
+        "=" * 72,
+        "              CYBERTHREAT SHIELD - VULNERABILITY REPORT",
+        "=" * 72,
+        f"URL: {url}",
+        f"Scan Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        "=" * 72,
+    ]
+
+    summary = get_severity_summary(scan_results)
+
+    lines.extend([
+        "",
+        "SEVERITY SUMMARY",
+        "-" * 40,
+        f"Critical : {summary.get('Critical', 0)}",
+        f"High     : {summary.get('High', 0)}",
+        f"Medium   : {summary.get('Medium', 0)}",
+        f"Low      : {summary.get('Low', 0)}",
+        f"Info     : {summary.get('Info', 0)}",
+        "",
+    ])
+
+    for category, results in scan_results.items():
+        lines.extend([
+            f"[ {category} ]",
+            "-" * 72,
+        ])
+
+        for result in results:
+            severity = result.get("severity", "Info")
+
+            lines.extend([
+                f"[ {severity.upper()} ] {result['text']}",
+                "",
+                "Description:",
+                f"  {result.get('description', 'No description available.')}",
+                "",
+                "General Attack Scenario:",
+                f"  {result.get('attack', 'No attack scenario available.')}",
+                "",
+                "Recommended Fix:",
+                f"  {result.get('fix', 'Review and harden the affected component.')}",
+                "",
+                "-" * 72,
+            ])
+
+        lines.append("")
+
+    lines.extend([
+        "=" * 72,
+        "IMPORTANT: Findings are based on non-invasive automated checks.",
+        "A finding does not prove exploitability. Manual validation is required",
+        "before treating a result as a confirmed vulnerability.",
+        "=" * 72,
+        "End of Report",
+        "=" * 72,
+    ])
+
     return "\n".join(lines)
