@@ -11,7 +11,7 @@ import tldextract
 import bcrypt
 import os
 
-from routers import fraud, vulnerability
+from routers import fraud, vulnerability, hardware
 from services.ml_model import predict
 from database.db import init_db, create_user, get_user
 
@@ -27,6 +27,7 @@ templates = Jinja2Templates(directory="../frontend")
 
 app.include_router(fraud.router, prefix="/fraud", tags=["Fraud Detection"])
 app.include_router(vulnerability.router, prefix="/vuln", tags=["Vulnerability Scanner"])
+app.include_router(hardware.router, prefix="/hardware", tags=["Hardware Scanner"])
 
 TRUSTED_BRANDS = {
     "google", "youtube", "amazon", "facebook", "instagram",
@@ -257,3 +258,9 @@ def vuln_page(request: Request, session: str = Cookie(default=None)):
     if not session or not verify_session(session):
         return RedirectResponse(url="/", status_code=303)
     return templates.TemplateResponse(request, "vulnerability.html")
+
+@app.get("/hardware", response_class=HTMLResponse)
+def hardware_page(request: Request, session: str = Cookie(default=None)):
+    if not session or not verify_session(session):
+        return RedirectResponse(url="/", status_code=303)
+    return templates.TemplateResponse(request, "hardware.html")
