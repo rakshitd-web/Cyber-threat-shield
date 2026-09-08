@@ -3,13 +3,19 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+
+import os
+from dotenv import load_dotenv
+
+# Load environment variables first
+load_dotenv()
+
 from utils.brand_check import check_brand_impersonation, KNOWN_BRANDS as KNOWN_BRANDS_MAP
 from utils.url_features import extract_features, get_feature_reasons
 from services.threat_intel import check_virustotal, check_domain_age, follow_redirects
 from urllib.parse import urlparse
 import tldextract
 import bcrypt
-import os
 
 from routers import fraud, vulnerability, hardware
 from services.ml_model import predict
@@ -18,6 +24,7 @@ from database.db import init_db, create_user, get_user
 app = FastAPI(title="CyberThreat Shield")
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "change-this-in-production")
+
 serializer = URLSafeTimedSerializer(SECRET_KEY)
 
 init_db()
