@@ -6,7 +6,8 @@
 </head>
 <body>
 <div class="site-header">
-    <h1 class="site-name">Phishing URL Detection</h1>
+    <img src="/static/logo.png" alt="Logo" class="logo">
+    <h1 class="site-name">Cyber Threatshield</h1>
     <div class="header-actions">
         <div class="home-btn">
             <a href="/home"><button type="button">Home Page</button></a>
@@ -16,7 +17,14 @@
         </div>
     </div>
 </div>
+
 <div class="container">
+
+    <div class="hardware-header">
+        <h2>Phishing Detection</h2>
+        <p>Detects potential phishing websites before you interact with them.</p>
+    </div>
+
     <form method="post" action="/scan">
         <input type="text" name="url" placeholder="Enter URL here" required>
         <button type="submit">Scan</button>
