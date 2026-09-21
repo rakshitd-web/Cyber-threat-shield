@@ -5,6 +5,7 @@ import time
 
 from services.hardware_scanner import run_hardware_scan
 
+
 HOST = "127.0.0.1"
 PORT = 8765
 
@@ -12,11 +13,27 @@ AGENT_NAME = "CyberThreat Shield Hardware Agent"
 AGENT_VERSION = "1.0.0"
 
 
+ALLOWED_ORIGINS = {
+    "http://127.0.0.1:8000",
+    "https://cyber-threat-shield.onrender.com"
+}
+
+
 scan_lock = threading.Lock()
 
 scan_running = False
 last_scan = None
 last_scan_time = None
+
+
+def get_allowed_origin(handler):
+
+    origin = handler.headers.get("Origin")
+
+    if origin in ALLOWED_ORIGINS:
+        return origin
+
+    return None
 
 
 def send_json(handler, status_code, data):
@@ -38,10 +55,13 @@ def send_json(handler, status_code, data):
         str(len(response))
     )
 
-    handler.send_header(
-        "Access-Control-Allow-Origin",
-        "https://cyber-threat-shield.onrender.com"
-    )
+    origin = get_allowed_origin(handler)
+
+    if origin:
+        handler.send_header(
+            "Access-Control-Allow-Origin",
+            origin
+        )
 
     handler.send_header(
         "Access-Control-Allow-Methods",
@@ -58,9 +78,7 @@ def send_json(handler, status_code, data):
     handler.wfile.write(response)
 
 
-
 class HardwareAgentHandler(BaseHTTPRequestHandler):
-
 
     def log_message(self, format, *args):
         return
@@ -69,10 +87,13 @@ class HardwareAgentHandler(BaseHTTPRequestHandler):
 
         self.send_response(204)
 
-        self.send_header(
-            "Access-Control-Allow-Origin",
-            "https://cyber-threat-shield.onrender.com"
-        )
+        origin = get_allowed_origin(self)
+
+        if origin:
+            self.send_header(
+                "Access-Control-Allow-Origin",
+                origin
+            )
 
         self.send_header(
             "Access-Control-Allow-Methods",
