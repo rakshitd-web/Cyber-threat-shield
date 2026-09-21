@@ -1,0 +1,5 @@
+services:
+  - type: web
+    name: cyber-threatshield
+    runtime: python
+    buildCommand: pip install -r backend/requirements.txt
