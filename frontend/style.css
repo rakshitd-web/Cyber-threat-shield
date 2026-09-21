@@ -148,11 +148,13 @@ input:focus {
     align-items: center;
 }
 
+/*
 .button-block:nth-child(3) {
     width: 100%;
     align-items: center;
     text-align: center;
 }
+*/
 
 .button-block p {
     margin: 0px;
