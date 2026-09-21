@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Hardware Integrity Scanner</title>
+
+    <link rel="stylesheet" href="/static/style.css">
+
+   
+</head>
+
+<body>
+
+<div class="site-header">
+    <img src="/static/logo.png" alt="Logo" class="logo">
+    <h1 class="site-name">Cyber Threatshield</h1>
+    <div class="header-actions">
+        <div class="home-btn">
+            <a href="/home"><button type="button">Home Page</button></a>
+        </div>
+        <div class="logout-btn">
+            <a href="/logout"><button type="button">Logout</button></a>
+        </div>
+    </div>
+</div>
+
+
+<div class="container">
+
+    <div class="hardware-header">
+
+        <h2>Hardware Integrity Scanner</h2>
+
+        <p>
+            Scan your system hardware for identity, status and integrity information.
+        </p>
+
+    </div>
+
+
+    <!-- Agent Status -->
+
+    <div class="agent-status">
+
+        <div class="agent-info">
+
+            <span class="agent-name">
+                CyberThreat Shield Hardware Agent
+            </span>
+
+            <span class="agent-version" id="agentVersion">
+                Checking local agent...
+            </span>
+
+        </div>
+
+        <div class="agent-indicator">
+
+            <span class="status-dot" id="statusDot"></span>
+
+            <span id="agentStatus">
+                Checking...
+            </span>
+
+        </div>
+
+    </div>
+
+
+    <!-- Scan Controls -->
+
+    <div class="scan-controls">
+
+        <button
+            id="scanButton"
+            type="button"
+            onclick="startHardwareScan()"
+        >
+            Scan Hardware
+        </button>
+
+        <div
+            class="scan-message"
+            id="scanMessage"
+        >
+            Checking whether the local hardware agent is available...
+        </div>
+
+    </div>
+
+
+    <div
+        class="error-box"
+        id="errorBox"
+    ></div>
+
+
+    <!-- Summary -->
+
+    <div
+        id="summaryArea"
+        style="display:none;"
+    >
+
+        <div class="summary-grid">
+
+            <div class="summary-card">
+                <span
+                    class="number"
+                    id="cpuCount"
+                >
+                    0
+                </span>
+
+                <span class="label">
+                    CPU
+                </span>
+            </div>
+
+
+            <div class="summary-card">
+
+                <span
+                    class="number"
+                    id="gpuCount"
+                >
+                    0
+                </span>
+
+                <span class="label">
+                    GPU
+                </span>
+
+            </div>
+
+
+            <div class="summary-card">
+
+                <span
+                    class="number"
+                    id="storageCount"
+                >
+                    0
+                </span>
+
+                <span class="label">
+                    Storage Devices
+                </span>
+
+            </div>
+
+
+            <div class="summary-card">
+
+                <span
+                    class="number"
+                    id="usbCount"
+                >
+                    0
+                </span>
+
+                <span class="label">
+                    USB Devices
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <!-- Overall -->
+
+        <div
+            class="overall-status"
+            id="overallStatus"
+        >
+
+            <h2>
+                Hardware Scan Result
+            </h2>
+
+            <p id="overallText">
+                Scan completed.
+            </p>
+
+        </div>
+
+
+        <!-- CPU -->
+
+        <div class="hardware-section">
+
+            <h2 class="section-title">
+                Processor
+            </h2>
+
+            <div
+                class="section-content"
+                id="cpuSection"
+            ></div>
+
+        </div>
+
+
+        <!-- GPU -->
+
+        <div class="hardware-section">
+
+            <h2 class="section-title">
+                Graphics
+            </h2>
+
+            <div
+                class="section-content"
+                id="gpuSection"
+            ></div>
+
+        </div>
+
+
+        <!-- Memory -->
+
+        <div class="hardware-section">
+
+            <h2 class="section-title">
+                Memory
+            </h2>
+
+            <div
+                class="section-content"
+                id="memorySection"
+            ></div>
+
+        </div>
+
+
+        <!-- Motherboard -->
+
+        <div class="hardware-section">
+
+            <h2 class="section-title">
+                Motherboard
+            </h2>
+
+            <div
+                class="section-content"
+                id="motherboardSection"
+            ></div>
+
+        </div>
+
+
+        <!-- BIOS -->
+
+        <div class="hardware-section">
+
+            <h2 class="section-title">
+                BIOS
+            </h2>
+
+            <div
+                class="section-content"
+                id="biosSection"
+            ></div>
+
+        </div>
+
+
+        <!-- Storage -->
+
+        <div class="hardware-section">
+
+            <h2 class="section-title">
+                Storage
+            </h2>
+
+            <div
+                class="section-content"
+                id="storageSection"
+            ></div>
+
+        </div>
+
+
+        <!-- Network -->
+
+        <div class="hardware-section">
+
+            <h2 class="section-title">
+                Network Adapters
+            </h2>
+
+            <div
+                class="section-content"
+                id="networkSection"
+            ></div>
+
+        </div>
+
+
+        <!-- USB -->
+
+        <div class="hardware-section">
+
+            <h2 class="section-title">
+                USB Devices
+            </h2>
+
+            <div
+                class="section-content"
+                id="usbSection"
+            ></div>
+
+        </div>
+
+
+        <!-- Battery -->
+
+        <div class="hardware-section">
+
+            <h2 class="section-title">
+                Battery
+            </h2>
+
+            <div
+                class="section-content"
+                id="batterySection"
+            ></div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+const AGENT_URL = "http://127.0.0.1:8765";
+
+
+/* -------------------------------------------------------
+   Utility Functions
+------------------------------------------------------- */
+
+function escapeHTML(value) {
+
+    if (value === null || value === undefined) {
+        return "N/A";
+    }
+
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+
+function setAgentStatus(online, text) {
+
+    const dot = document.getElementById("statusDot");
+    const status = document.getElementById("agentStatus");
+
+    dot.classList.remove("online", "offline");
+
+    if (online) {
+
+        dot.classList.add("online");
+
+        status.textContent = text || "Agent Online";
+
+        status.style.color = "#51cf66";
+
+    } else {
+
+        dot.classList.add("offline");
+
+        status.textContent = text || "Agent Offline";
+
+        status.style.color = "#ff6b6b";
+    }
+}
+
+
+function showError(message) {
+
+    const box = document.getElementById("errorBox");
+
+    box.textContent = message;
+    box.style.display = "block";
+}
+
+
+function clearError() {
+
+    const box = document.getElementById("errorBox");
+
+    box.textContent = "";
+    box.style.display = "none";
+}
+
+
+function valueOrNA(value) {
+
+    if (
+        value === null ||
+        value === undefined ||
+        value === ""
+    ) {
+        return "N/A";
+    }
+
+    return escapeHTML(value);
+}
+
+
+function formatBytes(bytes) {
+
+    const value = Number(bytes);
+
+    if (!Number.isFinite(value)) {
+        return "N/A";
+    }
+
+    if (value >= 1024 ** 3) {
+        return (
+            (value / (1024 ** 3)).toFixed(2) +
+            " GB"
+        );
+    }
+
+    if (value >= 1024 ** 2) {
+        return (
+            (value / (1024 ** 2)).toFixed(2) +
+            " MB"
+        );
+    }
+
+    return value + " bytes";
+}
+
+
+function createDetails(data) {
+
+    let html = '<div class="details-grid">';
+
+    for (const [key, value] of Object.entries(data)) {
+
+        html += `
+            <div class="detail-row">
+
+                <span class="detail-label">
+                    ${escapeHTML(formatLabel(key))}
+                </span>
+
+                <span class="detail-value">
+                    ${formatValue(value)}
+                </span>
+
+            </div>
+        `;
+    }
+
+    html += "</div>";
+
+    return html;
+}
+
+
+function formatLabel(key) {
+
+    return key
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, char => char.toUpperCase());
+}
+
+
+function formatValue(value) {
+
+    if (
+        value === null ||
+        value === undefined ||
+        value === ""
+    ) {
+        return "N/A";
+    }
+
+    if (typeof value === "object") {
+
+        return escapeHTML(
+            JSON.stringify(value)
+        );
+
+    }
+
+    return escapeHTML(value);
+}
+
+
+/* -------------------------------------------------------
+   Component Status
+------------------------------------------------------- */
+
+function getStatusClass(status) {
+
+    if (!status) {
+        return "neutral";
+    }
+
+    const normalized =
+        String(status).toUpperCase();
+
+    if (
+        normalized === "OK" ||
+        normalized === "HEALTHY" ||
+        normalized === "GOOD" ||
+        normalized === "NORMAL" ||
+        normalized === "VERIFIED" ||
+        normalized === "VALID" ||
+        normalized === "CONSISTENT"
+    ) {
+        return "good";
+    }
+
+    if (
+        normalized === "WARNING" ||
+        normalized === "DEGRADED" ||
+        normalized === "MODERATE" ||
+        normalized === "ELEVATED" ||
+        normalized === "UNKNOWN"
+    ) {
+        return "warning";
+    }
+
+    if (
+        normalized === "FAILED" ||
+        normalized === "UNHEALTHY" ||
+        normalized === "CRITICAL" ||
+        normalized === "HIGH" ||
+        normalized === "HIGH_RISK" ||
+        normalized === "MISMATCH" ||
+        normalized === "SUSPICIOUS"
+    ) {
+        return "danger";
+    }
+
+    return "neutral";
+}
+
+
+function getPrimaryStatus(item) {
+
+    if (!item || typeof item !== "object") {
+        return "UNKNOWN";
+    }
+
+    if (item.status) {
+        return item.status;
+    }
+
+    if (item.integrity && item.integrity.status) {
+        return item.integrity.status;
+    }
+
+    if (item.health_status) {
+        return item.health_status;
+    }
+
+    return "UNKNOWN";
+}
+
+
+/* -------------------------------------------------------
+   Component Rendering
+------------------------------------------------------- */
+
+function renderComponent(
+    item,
+    titleField,
+    ignoredFields = []
+) {
+
+    if (!item) {
+        return "";
+    }
+
+    const title =
+        item[titleField] ||
+        item.name ||
+        item.model ||
+        item.component ||
+        "Hardware Component";
+
+    const status =
+        getPrimaryStatus(item);
+
+    const statusClass =
+        getStatusClass(status);
+
+    const filtered = {};
+
+    for (const [key, value] of Object.entries(item)) {
+
+        if (ignoredFields.includes(key)) {
+            continue;
+        }
+
+        if (key === "integrity") {
+            continue;
+        }
+
+        filtered[key] = value;
+    }
+
+    let integrityHTML = "";
+
+    if (
+        item.integrity &&
+        typeof item.integrity === "object"
+    ) {
+
+        const integrityStatus =
+            item.integrity.status || "UNKNOWN";
+
+        integrityHTML = `
+
+            <div style="margin-top:12px;">
+
+                <span class="component-status ${getStatusClass(integrityStatus)}">
+                    Integrity: ${escapeHTML(integrityStatus)}
+                </span>
+
+            </div>
+
+        `;
+    }
+
+    return `
+
+        <div class="component-card">
+
+            <div class="component-title">
+
+                <strong>
+                    ${escapeHTML(title)}
+                </strong>
+
+                <span class="component-status ${statusClass}">
+                    ${escapeHTML(status)}
+                </span>
+
+            </div>
+
+            ${createDetails(filtered)}
+
+            ${integrityHTML}
+
+        </div>
+
+    `;
+}
+
+
+function renderList(
+    elementId,
+    items,
+    titleField
+) {
+
+    const element =
+        document.getElementById(elementId);
+
+    if (
+        !Array.isArray(items) ||
+        items.length === 0
+    ) {
+
+        element.innerHTML = `
+            <div class="empty-message">
+                No information available.
+            </div>
+        `;
+
+        return;
+    }
+
+    element.innerHTML =
+        items.map(
+            item =>
+                renderComponent(
+                    item,
+                    titleField
+                )
+        ).join("");
+}
+
+
+/* -------------------------------------------------------
+   CPU
+------------------------------------------------------- */
+
+function renderCPU(cpus) {
+
+    const element =
+        document.getElementById("cpuSection");
+
+    if (
+        !Array.isArray(cpus) ||
+        cpus.length === 0
+    ) {
+
+        element.innerHTML = `
+            <div class="empty-message">
+                CPU information unavailable.
+            </div>
+        `;
+
+        return;
+    }
+
+    element.innerHTML =
+        cpus.map(cpu => {
+
+            return `
+
+                <div class="component-card">
+
+                    <div class="component-title">
+
+                        <strong>
+                            ${valueOrNA(cpu.name)}
+                        </strong>
+
+                        <span class="component-status ${getStatusClass(cpu.status)}">
+                            ${valueOrNA(cpu.status || "UNKNOWN")}
+                        </span>
+
+                    </div>
+
+                    ${createDetails({
+                        manufacturer: cpu.manufacturer,
+                        architecture: cpu.architecture,
+                        cores: cpu.cores,
+                        logical_processors: cpu.logical_processors,
+                        max_clock_speed_mhz: cpu.max_clock_speed_mhz,
+                        current_clock_speed_mhz: cpu.current_clock_speed_mhz,
+                        socket: cpu.socket
+                    })}
+
+                </div>
+
+            `;
+
+        }).join("");
+}
+
+
+/* -------------------------------------------------------
+   Battery
+------------------------------------------------------- */
+
+function renderBattery(batteries) {
+
+    const element =
+        document.getElementById("batterySection");
+
+    if (
+        !Array.isArray(batteries) ||
+        batteries.length === 0
+    ) {
+
+        element.innerHTML = `
+            <div class="empty-message">
+                No battery information available.
+            </div>
+        `;
+
+        return;
+    }
+
+    element.innerHTML =
+        batteries.map(battery => {
+
+            let charge =
+                battery.charge_percent;
+
+            if (
+                charge !== null &&
+                charge !== undefined &&
+                charge !== ""
+            ) {
+                charge = charge + "%";
+            }
+
+            return `
+
+                <div class="component-card">
+
+                    <div class="component-title">
+
+                        <strong>
+                            ${valueOrNA(battery.name)}
+                        </strong>
+
+                        <span class="component-status ${getStatusClass(battery.status)}">
+                            ${valueOrNA(battery.status || "UNKNOWN")}
+                        </span>
+
+                    </div>
+
+                    ${createDetails({
+                        manufacturer: battery.manufacturer,
+                        charge: charge,
+                        battery_status: battery.battery_status,
+                        estimated_runtime: battery.estimated_runtime
+                    })}
+
+                </div>
+
+            `;
+
+        }).join("");
+}
+
+
+/* -------------------------------------------------------
+   Summary
+------------------------------------------------------- */
+
+function updateSummary(hardware) {
+
+    document.getElementById("cpuCount").textContent =
+        Array.isArray(hardware.cpu)
+            ? hardware.cpu.length
+            : 0;
+
+    document.getElementById("gpuCount").textContent =
+        Array.isArray(hardware.gpu)
+            ? hardware.gpu.length
+            : 0;
+
+    document.getElementById("storageCount").textContent =
+        Array.isArray(hardware.storage)
+            ? hardware.storage.length
+            : 0;
+
+    document.getElementById("usbCount").textContent =
+        Array.isArray(hardware.usb)
+            ? hardware.usb.length
+            : 0;
+}
+
+
+/* -------------------------------------------------------
+   Overall Status
+------------------------------------------------------- */
+
+function calculateOverallStatus(hardware) {
+
+    const statuses = [];
+
+    const groups = [
+        hardware.cpu,
+        hardware.gpu,
+        hardware.memory,
+        hardware.motherboard,
+        hardware.bios,
+        hardware.storage,
+        hardware.network,
+        hardware.usb,
+        hardware.battery
+    ];
+
+    groups.forEach(group => {
+
+        if (!Array.isArray(group)) {
+            return;
+        }
+
+        group.forEach(item => {
+
+            const status =
+                getPrimaryStatus(item);
+
+            if (status) {
+                statuses.push(
+                    String(status).toUpperCase()
+                );
+            }
+
+        });
+
+    });
+
+
+    const criticalStatuses = [
+        "FAILED",
+        "UNHEALTHY",
+        "CRITICAL",
+        "HIGH_RISK",
+        "MISMATCH"
+    ];
+
+    const warningStatuses = [
+        "WARNING",
+        "DEGRADED",
+        "MODERATE",
+        "ELEVATED",
+        "SUSPICIOUS"
+    ];
+
+
+    if (
+        statuses.some(
+            status =>
+                criticalStatuses.includes(status)
+        )
+    ) {
+
+        return {
+            text: "Critical hardware status detected.",
+            className: "status-danger"
+        };
+
+    }
+
+
+    if (
+        statuses.some(
+            status =>
+                warningStatuses.includes(status)
+        )
+    ) {
+
+        return {
+            text: "Some hardware components require attention.",
+            className: "status-warning"
+        };
+
+    }
+
+
+    if (statuses.length > 0) {
+
+        return {
+            text: "Hardware scan completed. No critical component status was reported.",
+            className: "status-good"
+        };
+
+    }
+
+
+    return {
+        text: "Hardware scan completed, but status information was limited.",
+        className: "status-neutral"
+    };
+}
+
+
+/* -------------------------------------------------------
+   Render Complete Scan
+------------------------------------------------------- */
+
+function renderHardware(hardware) {
+
+    if (!hardware || typeof hardware !== "object") {
+        throw new Error(
+            "Invalid hardware data received."
+        );
+    }
+
+    updateSummary(hardware);
+
+    renderCPU(hardware.cpu);
+
+    renderList(
+        "gpuSection",
+        hardware.gpu,
+        "name"
+    );
+
+    renderList(
+        "memorySection",
+        hardware.memory,
+        "manufacturer"
+    );
+
+    renderList(
+        "motherboardSection",
+        hardware.motherboard,
+        "model"
+    );
+
+    renderList(
+        "biosSection",
+        hardware.bios,
+        "manufacturer"
+    );
+
+    renderList(
+        "storageSection",
+        hardware.storage,
+        "model"
+    );
+
+    renderList(
+        "networkSection",
+        hardware.network,
+        "name"
+    );
+
+    renderList(
+        "usbSection",
+        hardware.usb,
+        "name"
+    );
+
+    renderBattery(
+        hardware.battery
+    );
+
+
+    const overall =
+        calculateOverallStatus(hardware);
+
+    const overallElement =
+        document.getElementById("overallStatus");
+
+    const overallText =
+        document.getElementById("overallText");
+
+    overallText.textContent =
+        overall.text;
+
+    overallText.className =
+        overall.className;
+
+
+    document.getElementById(
+        "summaryArea"
+    ).style.display = "block";
+}
+
+
+/* -------------------------------------------------------
+   Check Local Agent
+------------------------------------------------------- */
+
+async function checkAgent() {
+
+    try {
+
+        const response =
+            await fetch(
+                `${AGENT_URL}/health`,
+                {
+                    method: "GET",
+                    cache: "no-store"
+                }
+            );
+
+        if (!response.ok) {
+            throw new Error(
+                "Agent returned HTTP " +
+                response.status
+            );
+        }
+
+        const data =
+            await response.json();
+
+        if (!data.success) {
+            throw new Error(
+                "Hardware agent is not running."
+            );
+        }
+
+        setAgentStatus(
+            true,
+            "Agent Online"
+        );
+
+        document.getElementById(
+            "agentVersion"
+        ).textContent =
+            `Version ${valueOrNA(data.version)} `;
+
+        document.getElementById(
+            "scanButton"
+        ).disabled = false;
+
+        document.getElementById(
+            "scanMessage"
+        ).textContent =
+            "Hardware agent is ready. Click Scan Hardware to begin.";
+
+        return true;
+
+    } catch (error) {
+
+        setAgentStatus(
+            false,
+            "Agent Offline"
+        );
+
+        document.getElementById(
+            "agentVersion"
+        ).textContent =
+            "Local agent could not be reached.";
+
+        document.getElementById(
+            "scanButton"
+        ).disabled = true;
+
+        document.getElementById(
+            "scanMessage"
+        ).textContent =
+            "Start the CyberThreat Shield Hardware Agent and refresh this page.";
+
+        return false;
+    }
+}
+
+
+/* -------------------------------------------------------
+   Start Hardware Scan
+------------------------------------------------------- */
+
+async function startHardwareScan() {
+
+    clearError();
+
+    const button =
+        document.getElementById("scanButton");
+
+    const message =
+        document.getElementById("scanMessage");
+
+    button.disabled = true;
+    button.classList.add("scanning");
+
+    button.textContent =
+        "Scanning...";
+
+    message.textContent =
+        "Collecting hardware information from this computer...";
+
+
+    try {
+
+        const agentResponse =
+            await fetch(
+                `${AGENT_URL}/scan`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    cache: "no-store"
+                }
+            );
+
+
+        if (!agentResponse.ok) {
+
+            let errorText =
+                "Hardware agent scan failed.";
+
+            try {
+
+                const errorData =
+                    await agentResponse.json();
+
+                if (errorData.error) {
+                    errorText =
+                        errorData.error;
+                }
+
+            } catch (_) {}
+
+            throw new Error(errorText);
+        }
+
+
+        const agentData =
+            await agentResponse.json();
+
+
+        if (
+            !agentData.success ||
+            !agentData.hardware
+        ) {
+
+            throw new Error(
+                agentData.error ||
+                "No hardware information received."
+            );
+
+        }
+
+
+        /*
+         * Send the collected hardware data to the
+         * FastAPI backend as well.
+         *
+         * The current backend endpoint stores/receives
+         * the inventory and returns it.
+         */
+
+        message.textContent =
+            "Hardware detected. Sending scan results to CyberThreat Shield...";
+
+
+        try {
+
+            const backendResponse =
+                await fetch(
+                    "/hardware/scan",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            hardware:
+                                agentData.hardware
+                        })
+                    }
+                );
+
+
+            if (backendResponse.ok) {
+
+                const backendData =
+                    await backendResponse.json();
+
+                if (
+                    backendData.success &&
+                    backendData.hardware
+                ) {
+
+                    renderHardware(
+                        backendData.hardware
+                    );
+
+                } else {
+
+                    renderHardware(
+                        agentData.hardware
+                    );
+
+                }
+
+            } else {
+
+                /*
+                 * Still display the locally collected
+                 * information if the backend request fails.
+                 */
+
+                renderHardware(
+                    agentData.hardware
+                );
+
+            }
+
+        } catch (backendError) {
+
+            renderHardware(
+                agentData.hardware
+            );
+
+        }
+
+
+        message.textContent =
+            "Hardware scan completed successfully.";
+
+    } catch (error) {
+
+        showError(
+            error.message ||
+            "Unable to complete hardware scan."
+        );
+
+        message.textContent =
+            "Hardware scan failed.";
+
+    } finally {
+
+        button.disabled = false;
+
+        button.classList.remove("scanning");
+
+        button.textContent =
+            "Scan Hardware";
+
+    }
+
+}
+
+
+/* -------------------------------------------------------
+   Initial Page Load
+------------------------------------------------------- */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    async function() {
+
+        document.getElementById(
+            "scanButton"
+        ).disabled = true;
+
+        await checkAgent();
+
+    }
+);
+
+</script>
+
+</body>
+</html>
