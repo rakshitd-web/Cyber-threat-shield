@@ -272,3 +272,10 @@ def hardware_page(request: Request, session: str = Cookie(default=None)):
     if not session or not verify_session(session):
         return RedirectResponse(url="/", status_code=303)
     return templates.TemplateResponse(request, "hardware.html")
+
+@app.get("/link_scanner", response_class=HTMLResponse)
+def link_scanner_page(request: Request, session: str = Cookie(default=None)):
+    if not session or not verify_session(session):
+        return RedirectResponse(url="/", status_code=303)
+
+    return templates.TemplateResponse(request, "link_scanner.html")

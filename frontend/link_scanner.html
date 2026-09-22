@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Link Scanner - CyberThreat Shield</title>
+
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+
+    <!-- HEADER -->
+
+    <div class="site-header">
+    <img src="/static/logo.png" alt="Logo" class="logo">
+    <h1 class="site-name">Cyber Threatshield</h1>
+    <div class="header-actions">
+        <div class="home-btn">
+            <a href="/home"><button type="button">Home Page</button></a>
+        </div>
+        <div class="logout-btn">
+            <a href="/logout"><button type="button">Logout</button></a>
+        </div>
+    </div>
+</div>
+
+    <!-- MAIN CONTAINER -->
+
+    <div class="container link-scanner-container">
+
+        <!-- MODULE HEADER -->
+
+        <div class="link-scanner-header">
+
+            <h2>Link Scanner</h2>
+
+            <p>
+                Analyze a URL for technical security risks, redirects,
+                SSL configuration, and security headers.
+            </p>
+
+        </div>
+
+
+        <!-- URL INPUT -->
+
+        <div class="link-scan-box">
+
+            <input
+                type="text"
+                id="urlInput"
+                placeholder="Enter URL, e.g. https://example.com"
+                autocomplete="off"
+            >
+
+            <button
+                class="link-scan-button"
+                id="scanButton"
+                onclick="scanLink()"
+            >
+                Scan Link
+            </button>
+
+        </div>
+
+
+        <!-- ERROR -->
+
+        <div
+            class="link-error-message"
+            id="errorMessage"
+        ></div>
+
+
+        <!-- LOADING -->
+
+        <div
+            class="link-loading"
+            id="loading"
+        >
+            Scanning link...
+        </div>
+
+
+        <!-- RESULTS -->
+
+        <div
+            class="link-result-container"
+            id="resultContainer"
+        >
+
+            <!-- RESULT HEADER -->
+
+            <div class="link-result-header">
+
+                <h2>Scan Result</h2>
+
+                <div
+                    class="risk-badge"
+                    id="riskBadge"
+                >
+                    -
+                </div>
+
+            </div>
+
+
+            <!-- URL INFORMATION -->
+
+            <div class="link-result-card">
+
+                <h3>URL Information</h3>
+
+                <div class="link-info-grid">
+
+                    <div class="link-info-item">
+
+                        <span class="link-info-label">
+                            Original URL
+                        </span>
+
+                        <span
+                            class="link-info-value"
+                            id="originalUrl"
+                        >
+                            -
+                        </span>
+
+                    </div>
+
+
+                    <div class="link-info-item">
+
+                        <span class="link-info-label">
+                            Normalized URL
+                        </span>
+
+                        <span
+                            class="link-info-value"
+                            id="normalizedUrl"
+                        >
+                            -
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- RISK ANALYSIS -->
+
+            <div class="link-result-card">
+
+                <h3>Risk Analysis</h3>
+
+                <ul
+                    class="link-reason-list"
+                    id="riskReasons"
+                ></ul>
+
+            </div>
+
+
+            <!-- DOMAIN -->
+
+            <div class="link-result-card">
+
+                <h3>Domain Information</h3>
+
+                <div class="link-info-grid">
+
+                    <div class="link-info-item">
+
+                        <span class="link-info-label">
+                            Hostname
+                        </span>
+
+                        <span
+                            class="link-info-value"
+                            id="hostname"
+                        >
+                            -
+                        </span>
+
+                    </div>
+
+
+                    <div class="link-info-item">
+
+                        <span class="link-info-label">
+                            IP Address
+                        </span>
+
+                        <span
+                            class="link-info-value"
+                            id="ipAddress"
+                        >
+                            -
+                        </span>
+
+                    </div>
+
+
+                    <div class="link-info-item">
+
+                        <span class="link-info-label">
+                            Resolvable
+                        </span>
+
+                        <span
+                            class="link-info-value"
+                            id="resolvable"
+                        >
+                            -
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- SSL -->
+
+            <div class="link-result-card">
+
+                <h3>SSL / HTTPS</h3>
+
+                <div class="link-info-grid">
+
+                    <div class="link-info-item">
+
+                        <span class="link-info-label">
+                            HTTPS
+                        </span>
+
+                        <span
+                            class="link-info-value"
+                            id="httpsStatus"
+                        >
+                            -
+                        </span>
+
+                    </div>
+
+
+                    <div class="link-info-item">
+
+                        <span class="link-info-label">
+                            Certificate
+                        </span>
+
+                        <span
+                            class="link-info-value"
+                            id="certificateStatus"
+                        >
+                            -
+                        </span>
+
+                    </div>
+
+
+                    <div class="link-info-item">
+
+                        <span class="link-info-label">
+                            Issuer
+                        </span>
+
+                        <span
+                            class="link-info-value"
+                            id="sslIssuer"
+                        >
+                            -
+                        </span>
+
+                    </div>
+
+
+                    <div class="link-info-item">
+
+                        <span class="link-info-label">
+                            Expires
+                        </span>
+
+                        <span
+                            class="link-info-value"
+                            id="sslExpires"
+                        >
+                            -
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- REDIRECTS -->
+
+            <div class="link-result-card">
+
+                <h3>Redirect Analysis</h3>
+
+                <div class="link-info-grid">
+
+                    <div class="link-info-item">
+
+                        <span class="link-info-label">
+                            Redirect Count
+                        </span>
+
+                        <span
+                            class="link-info-value"
+                            id="redirectCount"
+                        >
+                            -
+                        </span>
+
+                    </div>
+
+
+                    <div class="link-info-item">
+
+                        <span class="link-info-label">
+                            Final Status Code
+                        </span>
+
+                        <span
+                            class="link-info-value"
+                            id="finalStatusCode"
+                        >
+                            -
+                        </span>
+
+                    </div>
+
+
+                    <div class="link-info-item">
+
+                        <span class="link-info-label">
+                            Final URL
+                        </span>
+
+                        <span
+                            class="link-info-value"
+                            id="finalUrl"
+                        >
+                            -
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+                <div
+                    class="link-redirect-chain"
+                    id="redirectChain"
+                ></div>
+
+            </div>
+
+
+            <!-- URL STRUCTURE -->
+
+            <div class="link-result-card">
+
+                <h3>URL Structure</h3>
+
+                <div class="link-info-grid">
+
+                    <div class="link-info-item">
+
+                        <span class="link-info-label">
+                            URL Length
+                        </span>
+
+                        <span
+                            class="link-info-value"
+                            id="urlLength"
+                        >
+                            -
+                        </span>
+
+                    </div>
+
+
+                    <div class="link-info-item">
+
+                        <span class="link-info-label">
+                            Subdomains
+                        </span>
+
+                        <span
+                            class="link-info-value"
+                            id="subdomains"
+                        >
+                            -
+                        </span>
+
+                    </div>
+
+
+                    <div class="link-info-item">
+
+                        <span class="link-info-label">
+                            Parameters
+                        </span>
+
+                        <span
+                            class="link-info-value"
+                            id="parameters"
+                        >
+                            -
+                        </span>
+
+                    </div>
+
+
+                    <div class="link-info-item">
+
+                        <span class="link-info-label">
+                            Suspicious Encoding
+                        </span>
+
+                        <span
+                            class="link-info-value"
+                            id="suspiciousEncoding"
+                        >
+                            -
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- SECURITY HEADERS -->
+
+            <div class="link-result-card">
+
+                <h3>Security Headers</h3>
+
+                <div class="link-info-grid">
+
+                    <div class="link-info-item">
+
+                        <span class="link-info-label">
+                            HSTS
+                        </span>
+
+                        <span
+                            class="link-info-value"
+                            id="hsts"
+                        >
+                            -
+                        </span>
+
+                    </div>
+
+
+                    <div class="link-info-item">
+
+                        <span class="link-info-label">
+                            Content Security Policy
+                        </span>
+
+                        <span
+                            class="link-info-value"
+                            id="csp"
+                        >
+                            -
+                        </span>
+
+                    </div>
+
+
+                    <div class="link-info-item">
+
+                        <span class="link-info-label">
+                            X-Frame-Options
+                        </span>
+
+                        <span
+                            class="link-info-value"
+                            id="xFrameOptions"
+                        >
+                            -
+                        </span>
+
+                    </div>
+
+
+                    <div class="link-info-item">
+
+                        <span class="link-info-label">
+                            X-Content-Type-Options
+                        </span>
+
+                        <span
+                            class="link-info-value"
+                            id="xContentTypeOptions"
+                        >
+                            -
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- KEEP YOUR EXISTING SCRIPT EXACTLY AS IT IS -->
+
+
+    <script>
+
+        async function scanLink() {
+
+    const urlInput = document.getElementById("urlInput");
+    const url = urlInput.value.trim();
+
+    const errorMessage = document.getElementById("errorMessage");
+    const resultContainer = document.getElementById("resultContainer");
+    const loading = document.getElementById("loading");
+    const scanButton = document.getElementById("scanButton");
+
+    // Clear previous error
+    errorMessage.style.display = "none";
+    errorMessage.textContent = "";
+
+    if (!url) {
+        errorMessage.textContent = "Please enter a URL.";
+        errorMessage.style.display = "block";
+        return;
+    }
+
+    // UI state
+    scanButton.disabled = true;
+    loading.style.display = "block";
+    resultContainer.style.display = "none";
+
+    try {
+
+        const response = await fetch("/link-scan/", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                url: url
+            })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                result.detail || "Link scan failed."
+            );
+        }
+
+        // Invalid URL returned by backend
+        if (result.valid === false) {
+            throw new Error(
+                result.error || "Invalid URL."
+            );
+        }
+
+        displayScanResult(result);
+
+    } catch (error) {
+
+        console.error("Link scan error:", error);
+
+        errorMessage.textContent =
+            error.message || "Unable to scan the link.";
+
+        errorMessage.style.display = "block";
+
+    } finally {
+
+        scanButton.disabled = false;
+        loading.style.display = "none";
+    }
+}
+
+function displayScanResult(result) {
+
+    const resultContainer =
+        document.getElementById("resultContainer");
+
+    // URL
+    document.getElementById("originalUrl").textContent =
+        result.url || "-";
+
+    document.getElementById("normalizedUrl").textContent =
+        result.normalized_url || "-";
+
+
+    // Risk
+    const riskBadge =
+        document.getElementById("riskBadge");
+
+    const riskLevel =
+        (result.risk_level || "UNKNOWN").toUpperCase();
+
+    riskBadge.textContent = riskLevel;
+
+    riskBadge.className = "risk-badge";
+
+    if (riskLevel === "LOW") {
+        riskBadge.classList.add("risk-low");
+    }
+    else if (riskLevel === "MEDIUM") {
+        riskBadge.classList.add("risk-medium");
+    }
+    else if (riskLevel === "HIGH") {
+        riskBadge.classList.add("risk-high");
+    }
+
+
+    // Risk reasons
+    const riskReasons =
+        document.getElementById("riskReasons");
+
+    riskReasons.innerHTML = "";
+
+    if (
+        result.risk_reasons &&
+        result.risk_reasons.length > 0
+    ) {
+
+        result.risk_reasons.forEach(reason => {
+
+            const li = document.createElement("li");
+
+            li.textContent = reason;
+
+            riskReasons.appendChild(li);
+        });
+
+    }
+    else {
+
+        const li = document.createElement("li");
+
+        li.textContent = "No risk reasons available.";
+
+        riskReasons.appendChild(li);
+    }
+
+
+    // Domain
+    const domain = result.domain || {};
+
+    document.getElementById("hostname").textContent =
+        domain.hostname || "-";
+
+    document.getElementById("ipAddress").textContent =
+        domain.ip || "-";
+
+    document.getElementById("resolvable").textContent =
+        domain.resolvable ? "Yes" : "No";
+
+
+    // SSL
+    const ssl = result.ssl || {};
+
+    document.getElementById("httpsStatus").textContent =
+        ssl.https ? "Yes" : "No";
+
+    document.getElementById("certificateStatus").textContent =
+        ssl.valid_cert ? "Valid" : "Invalid / Missing";
+
+    document.getElementById("sslIssuer").textContent =
+        ssl.issuer || "-";
+
+    document.getElementById("sslExpires").textContent =
+        ssl.expires || "-";
+
+
+    // Redirects
+    const redirects = result.redirects || {};
+
+    document.getElementById("redirectCount").textContent =
+        redirects.count ?? 0;
+
+    document.getElementById("finalStatusCode").textContent =
+        redirects.final_status_code ?? "-";
+
+    document.getElementById("finalUrl").textContent =
+        redirects.final_url || "-";
+
+
+    // Redirect chain
+    const redirectChain =
+        document.getElementById("redirectChain");
+
+    redirectChain.innerHTML = "";
+
+    if (
+        redirects.chain &&
+        redirects.chain.length > 0
+    ) {
+
+        redirects.chain.forEach((url, index) => {
+
+            const div = document.createElement("div");
+
+            div.className = "redirect-item";
+
+            div.textContent =
+                `${index + 1}. ${url}`;
+
+            redirectChain.appendChild(div);
+        });
+
+    }
+
+
+    // URL structure
+    const structure =
+        result.url_structure || {};
+
+    document.getElementById("urlLength").textContent =
+        structure.length ?? "-";
+
+    document.getElementById("subdomains").textContent =
+        structure.subdomains ?? "-";
+
+    document.getElementById("parameters").textContent =
+        structure.params ?? "-";
+
+    document.getElementById("suspiciousEncoding").textContent =
+        structure.suspicious_encoding ? "Yes" : "No";
+
+
+    // Security headers
+    const headers =
+        result.security_headers || {};
+
+    document.getElementById("hsts").textContent =
+        headers.hsts ? "Present" : "Missing";
+
+    document.getElementById("csp").textContent =
+        headers.csp ? "Present" : "Missing";
+
+    document.getElementById("xFrameOptions").textContent =
+        headers.x_frame_options ? "Present" : "Missing";
+
+    document.getElementById("xContentTypeOptions").textContent =
+        headers.x_content_type_options
+            ? "Present"
+            : "Missing";
+
+
+    // Show results
+    resultContainer.style.display = "block";
+}
+
+    </script>
+
+</body>
+</html>

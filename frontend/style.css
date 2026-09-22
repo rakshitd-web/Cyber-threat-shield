@@ -812,3 +812,281 @@ body .logout-btn button:hover {
         align-items: flex-start;
     }
 }
+
+/* ── Link Scanner ── */
+
+.link-scanner-container {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.link-scanner-header {
+    text-align: center;
+    width: 100%;
+    margin-bottom: 25px;
+}
+
+.link-scanner-header h1 {
+    margin-bottom: 8px;
+}
+
+.link-scanner-header p {
+    margin: 0;
+    color: #bfc7d9;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+
+/* ── URL Scan Box ── */
+
+.link-scan-box {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.link-scan-box input {
+    flex: 1;
+    width: auto;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 12px 15px;
+    border-radius: 8px;
+    border: 1px solid rgba(120, 160, 255, 0.3);
+    background: rgba(255, 255, 255, 0.04);
+    color: #e0e0ff;
+    font-size: 14px;
+}
+
+.link-scan-box input:focus {
+    border-color: #00d4ff;
+    outline: none;
+    box-shadow: 0 0 8px rgba(0, 212, 255, 0.12);
+}
+
+.link-scan-button {
+    min-width: 130px;
+    margin: 0;
+}
+
+
+/* ── Loading ── */
+
+.link-loading {
+    display: none;
+    width: 100%;
+    padding: 15px;
+    box-sizing: border-box;
+    text-align: center;
+    color: #74c0fc;
+    font-size: 14px;
+}
+
+
+/* ── Error ── */
+
+.link-error-message {
+    display: none;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 15px;
+    margin-bottom: 20px;
+    border-radius: 7px;
+    color: #ff6b6b;
+    background: rgba(255, 50, 50, 0.07);
+    border: 1px solid rgba(255, 50, 50, 0.3);
+    text-align: left;
+}
+
+
+/* ── Results ── */
+
+.link-result-container {
+    display: none;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 10px;
+}
+
+.link-result-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.link-result-header h2 {
+    margin: 0;
+}
+
+
+/* ── Risk Badge ── */
+
+.risk-badge {
+    min-width: 80px;
+    padding: 7px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.risk-low {
+    background: rgba(50, 255, 100, 0.08);
+    color: #51cf66;
+    border: 1px solid rgba(81, 207, 102, 0.45);
+}
+
+.risk-medium {
+    background: rgba(255, 200, 50, 0.08);
+    color: #fcc419;
+    border: 1px solid rgba(252, 196, 25, 0.45);
+}
+
+.risk-high {
+    background: rgba(255, 50, 50, 0.08);
+    color: #ff6b6b;
+    border: 1px solid rgba(255, 107, 107, 0.45);
+}
+
+
+/* ── Result Cards ── */
+
+.link-result-card {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 18px;
+    margin-bottom: 15px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(120, 160, 255, 0.15);
+}
+
+.link-result-card h3 {
+    margin: 0 0 15px;
+    padding-bottom: 10px;
+    color: #4fc5be;
+    font-size: 17px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+
+/* ── Information Grid ── */
+
+.link-info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.link-info-item {
+    padding: 12px;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    text-align: left;
+}
+
+.link-info-label {
+    display: block;
+    margin-bottom: 5px;
+    color: #8792aa;
+    font-size: 12px;
+}
+
+.link-info-value {
+    display: block;
+    color: #e1e7f0;
+    font-size: 14px;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+
+/* ── Risk Reasons ── */
+
+.link-reason-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    text-align: left;
+}
+
+.link-reason-list li {
+    padding: 10px 13px;
+    margin-bottom: 7px;
+    border-radius: 5px;
+    background: rgba(255, 200, 50, 0.05);
+    border-left: 3px solid #fcc419;
+    color: #e1e7f0;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.link-reason-list li:last-child {
+    margin-bottom: 0;
+}
+
+
+/* ── Redirect Chain ── */
+
+.link-redirect-chain {
+    width: 100%;
+    margin-top: 12px;
+    text-align: left;
+    word-break: break-all;
+}
+
+.link-redirect-chain .redirect-item {
+    padding: 10px 12px;
+    margin-bottom: 7px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: #d5dce8;
+    font-size: 13px;
+}
+
+.link-redirect-chain .redirect-item:last-child {
+    margin-bottom: 0;
+}
+
+
+/* ── Responsive ── */
+
+@media (max-width: 700px) {
+
+    .link-scan-box {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .link-scan-box input {
+        width: 100%;
+    }
+
+    .link-scan-button {
+        width: 100%;
+        margin: 0;
+    }
+
+    .link-info-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .link-result-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .risk-badge {
+        align-self: flex-start;
+    }
+}
