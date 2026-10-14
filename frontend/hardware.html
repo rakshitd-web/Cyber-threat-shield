@@ -71,24 +71,51 @@
 
 
     <!-- Scan Controls -->
+    <div class="scan-controls scan-options">
+        <section class="scan-option-card">
+            <h3>Quick Scan</h3>
+            <p>Check basic information exposed by your browser. No local agent is required.</p>
+            <button id="quickScanButton" class="scan-option-button" type="button" onclick="runQuickScan()">
+                Quick Scan
+            </button>
+        </section>
 
-    <div class="scan-controls">
+        <section class="scan-option-card">
+            <h3>Deep Scan</h3>
+            <p>Inspect hardware inventory, device health and available integrity indicators using the local agent.</p>
+            <button id="scanButton" class="scan-option-button" type="button" onclick="beginDeepScan()">
+                Deep Scan
+            </button>
+        </section>
 
-        <button
-            id="scanButton"
-            type="button"
-            onclick="startHardwareScan()"
-        >
-            Scan Hardware
-        </button>
-
-        <div
-            class="scan-message"
-            id="scanMessage"
-        >
-            Checking whether the local hardware agent is available...
+        <div class="scan-message" id="scanMessage" role="status" aria-live="polite">
+            Quick Scan is available now. Deep Scan requires the local hardware agent.
         </div>
+    </div>
 
+    <section id="quickResultsArea" class="quick-results-area" style="display:none;" aria-live="polite">
+        <h2 class="section-title">Quick Scan Results</h2>
+        <p class="quick-scan-note">These values are reported by the browser and are not a full hardware inventory or a hardware-health assessment.</p>
+        <div id="quickResults" class="quick-results-grid"></div>
+    </section>
+
+    <div id="agentSetupModal" class="agent-modal" role="dialog" aria-modal="true" aria-labelledby="agentModalTitle" style="display:none;">
+        <div class="agent-modal-content">
+            <button class="agent-modal-close" type="button" aria-label="Close" onclick="closeAgentSetup()">&times;</button>
+            <h2 id="agentModalTitle">Set up Deep Scan</h2>
+            <p>Deep Scan needs the CyberThreat Shield Hardware Agent to read detailed hardware information from this computer.</p>
+            <ol>
+                <li>Download the agent executable.</li>
+                <li>Run the downloaded file on this computer. Windows may ask you to confirm that you trust the application.</li>
+                <li>Keep the agent running, return to this page, and select Check Agent.</li>
+            </ol>
+            <p class="agent-download-note">Only run the executable if you obtained it from your trusted CyberThreat Shield project distribution.</p>
+            <div class="agent-modal-actions">
+                <a id="agentDownloadLink" class="scan-option-button download-agent-button" href="/static/HardwareAgent.exe" download>Download HardwareAgent.exe</a>
+                <button class="scan-option-button secondary-scan-button" type="button" onclick="checkAgentFromModal()">Check Agent</button>
+            </div>
+            <p id="agentModalMessage" class="scan-message" role="status" aria-live="polite">The executable must be packaged and published at the download location before this link can work.</p>
+        </div>
     </div>
 
 
@@ -339,7 +366,7 @@
 
 <script>
 
-const AGENT_URL = "http://localhost:8765";
+const AGENT_URL = "http://127.0.0.1:8765";
 
 
 /* -------------------------------------------------------
@@ -1052,77 +1079,97 @@ function renderHardware(hardware) {
 ------------------------------------------------------- */
 
 async function checkAgent() {
-
     try {
-
-        const response =
-            await fetch(
-                `${AGENT_URL}/health`,
-                {
-                    method: "GET",
-                    cache: "no-store"
-                }
-            );
+        const response = await fetch(`${AGENT_URL}/health`, {
+            method: "GET",
+            cache: "no-store"
+        });
 
         if (!response.ok) {
-            throw new Error(
-                "Agent returned HTTP " +
-                response.status
-            );
+            throw new Error(`Agent returned HTTP ${response.status}`);
         }
 
-        const data =
-            await response.json();
-
+        const data = await response.json();
         if (!data.success) {
-            throw new Error(
-                "Hardware agent is not running."
-            );
+            throw new Error("Hardware agent is not running.");
         }
 
-        setAgentStatus(
-            true,
-            "Agent Online"
-        );
-
-        document.getElementById(
-            "agentVersion"
-        ).textContent =
-            `Version ${valueOrNA(data.version)} `;
-
-        document.getElementById(
-            "scanButton"
-        ).disabled = false;
-
-        document.getElementById(
-            "scanMessage"
-        ).textContent =
-            "Hardware agent is ready. Click Scan Hardware to begin.";
-
+        setAgentStatus(true, "Agent Online");
+        document.getElementById("agentVersion").textContent = `Version ${valueOrNA(data.version)}`;
+        document.getElementById("scanMessage").textContent = "Hardware agent is ready. Select Deep Scan to inspect this computer.";
+        document.getElementById("agentModalMessage").textContent = "Agent detected. You can close this dialog and start Deep Scan.";
         return true;
-
     } catch (error) {
-
-        setAgentStatus(
-            false,
-            "Agent Offline"
-        );
-
-        document.getElementById(
-            "agentVersion"
-        ).textContent =
-            "Local agent could not be reached.";
-
-        document.getElementById(
-            "scanButton"
-        ).disabled = true;
-
-        document.getElementById(
-            "scanMessage"
-        ).textContent =
-            "Start the CyberThreat Shield Hardware Agent and refresh this page.";
-
+        setAgentStatus(false, "Agent Offline");
+        document.getElementById("agentVersion").textContent = "Local agent not detected";
+        document.getElementById("scanMessage").textContent = "Quick Scan is available. To use Deep Scan, run the local hardware agent.";
+        document.getElementById("agentModalMessage").textContent = "Agent not detected yet. Run the downloaded executable, then select Check Agent.";
         return false;
+    }
+}
+
+function runQuickScan() {
+    clearError();
+
+    const nav = window.navigator;
+    const connection = nav.connection || nav.mozConnection || nav.webkitConnection;
+    const data = {
+        "Browser-reported platform": nav.userAgentData?.platform || nav.platform || "Not exposed by browser",
+        "Browser user agent": nav.userAgent || "Not available",
+        "Logical processor count": Number.isFinite(nav.hardwareConcurrency) ? nav.hardwareConcurrency : "Not exposed by browser",
+        "Approximate device memory (GB)": Number.isFinite(nav.deviceMemory) ? nav.deviceMemory : "Not exposed by browser",
+        "Screen resolution": `${window.screen.width} × ${window.screen.height}`,
+        "Available viewport": `${window.innerWidth} × ${window.innerHeight}`,
+        "Browser language": nav.language || "Not available",
+        "Network connection type": connection?.effectiveType || "Not exposed by browser",
+        "Browser online status": nav.onLine ? "Online" : "Offline"
+    };
+
+    const results = document.getElementById("quickResults");
+    results.replaceChildren();
+
+    for (const [label, value] of Object.entries(data)) {
+        const card = document.createElement("div");
+        card.className = "quick-result-card";
+
+        const heading = document.createElement("span");
+        heading.className = "quick-result-label";
+        heading.textContent = label;
+
+        const detail = document.createElement("span");
+        detail.className = "quick-result-value";
+        detail.textContent = String(value);
+
+        card.append(heading, detail);
+        results.appendChild(card);
+    }
+
+    document.getElementById("quickResultsArea").style.display = "block";
+    document.getElementById("scanMessage").textContent = "Quick Scan completed. Browser restrictions limit the information available.";
+}
+
+async function beginDeepScan() {
+    const available = await checkAgent();
+    if (available) {
+        await startHardwareScan();
+    } else {
+        openAgentSetup();
+    }
+}
+
+function openAgentSetup() {
+    document.getElementById("agentSetupModal").style.display = "flex";
+}
+
+function closeAgentSetup() {
+    document.getElementById("agentSetupModal").style.display = "none";
+}
+
+async function checkAgentFromModal() {
+    const available = await checkAgent();
+    if (available) {
+        closeAgentSetup();
+        await startHardwareScan();
     }
 }
 
@@ -1298,7 +1345,7 @@ async function startHardwareScan() {
         button.classList.remove("scanning");
 
         button.textContent =
-            "Scan Hardware";
+            "Deep Scan";
 
     }
 
@@ -1309,18 +1356,13 @@ async function startHardwareScan() {
    Initial Page Load
 ------------------------------------------------------- */
 
-document.addEventListener(
-    "DOMContentLoaded",
-    async function() {
+document.addEventListener("DOMContentLoaded", async function() {
+    await checkAgent();
 
-        document.getElementById(
-            "scanButton"
-        ).disabled = true;
-
-        await checkAgent();
-
-    }
-);
+    document.getElementById("agentSetupModal").addEventListener("click", function(event) {
+        if (event.target === this) closeAgentSetup();
+    });
+});
 
 </script>
 
