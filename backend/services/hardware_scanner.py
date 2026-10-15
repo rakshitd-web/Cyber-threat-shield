@@ -581,7 +581,6 @@ def get_battery_information():
 
 
 def run_hardware_scan():
-
     hardware = {
         "system": get_system_information(),
         "cpu": get_cpu_information(),
@@ -595,4 +594,29 @@ def run_hardware_scan():
         "battery": get_battery_information()
     }
 
+    # Run local integrity heuristics on the collected inventory.
+    # This annotates the original records so the existing frontend can render
+    # each component's integrity status without changing its rendering flow.
+    try:
+        from services.hardware_integrity import analyze_hardware_integrity
+    except ImportError:
+        # Support running hardware_scanner.py directly from the services folder.
+        from hardware_integrity import analyze_hardware_integrity
+
+    integrity_results = analyze_hardware_integrity(hardware)
+    summary = integrity_results.get("summary", {})
+
+    for group in (
+        "cpu", "gpu", "memory", "motherboard", "bios",
+        "storage", "network", "usb", "battery"
+    ):
+        inventory_items = hardware.get(group, [])
+        result_items = integrity_results.get(group, [])
+        if not isinstance(inventory_items, list):
+            continue
+        for index, item in enumerate(inventory_items):
+            if index < len(result_items) and isinstance(item, dict):
+                item["integrity"] = result_items[index].get("integrity", {})
+
+    hardware["integrity_summary"] = summary
     return hardware
