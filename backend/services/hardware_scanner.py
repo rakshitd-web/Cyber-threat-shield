@@ -594,13 +594,17 @@ def run_hardware_scan():
         "battery": get_battery_information()
     }
 
+    # Run local integrity heuristics on the collected inventory.
+    # This annotates the original records so the existing frontend can render
+    # each component's integrity status without changing its rendering flow.
     try:
         from services.hardware_integrity import analyze_hardware_integrity
     except ImportError:
+        # Support running hardware_scanner.py directly from the services folder.
         from hardware_integrity import analyze_hardware_integrity
 
     integrity_results = analyze_hardware_integrity(hardware)
-    hardware["integrity_summary"] = integrity_results.get("summary", {})
+    summary = integrity_results.get("summary", {})
 
     for group in (
         "cpu", "gpu", "memory", "motherboard", "bios",
@@ -614,12 +618,5 @@ def run_hardware_scan():
             if index < len(result_items) and isinstance(item, dict):
                 item["integrity"] = result_items[index].get("integrity", {})
 
-    # Compare against a local, per-user baseline. This is separate from the
-    # integrity heuristic and never uploads the baseline from this module.
-    try:
-        from services.hardware_baseline import compare_hardware_baseline
-    except ImportError:
-        from hardware_baseline import compare_hardware_baseline
-
-    hardware["baseline_comparison"] = compare_hardware_baseline(hardware)
+    hardware["integrity_summary"] = summary
     return hardware
