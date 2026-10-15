@@ -2,6 +2,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import threading
 import time
+from datetime import datetime
+from hardware_report import generate_hardware_report
 
 from services.hardware_scanner import run_hardware_scan
 
@@ -10,7 +12,7 @@ HOST = "127.0.0.1"
 PORT = 8765
 
 AGENT_NAME = "CyberThreat Shield Hardware Agent"
-AGENT_VERSION = "1.0.0"
+AGENT_VERSION = "1.1.0"
 
 
 ALLOWED_ORIGINS = {
@@ -24,6 +26,7 @@ scan_lock = threading.Lock()
 scan_running = False
 last_scan = None
 last_scan_time = None
+last_report_html = None
 
 
 def get_allowed_origin(handler):
@@ -72,10 +75,28 @@ def send_json(handler, status_code, data):
         "Access-Control-Allow-Headers",
         "Content-Type"
     )
+    handler.send_header("Access-Control-Allow-Private-Network", "true")
 
     handler.end_headers()
 
     handler.wfile.write(response)
+
+
+def send_html_attachment(handler, html_content):
+    payload = html_content.encode("utf-8")
+    handler.send_response(200)
+    handler.send_header("Content-Type", "text/html; charset=utf-8")
+    handler.send_header("Content-Length", str(len(payload)))
+    handler.send_header("Content-Disposition", 'attachment; filename="cyberthreat_hardware_report.html"')
+    handler.send_header("Cache-Control", "no-store")
+    origin = get_allowed_origin(handler)
+    if origin:
+        handler.send_header("Access-Control-Allow-Origin", origin)
+    handler.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    handler.send_header("Access-Control-Allow-Headers", "Content-Type")
+    handler.send_header("Access-Control-Allow-Private-Network", "true")
+    handler.end_headers()
+    handler.wfile.write(payload)
 
 
 class HardwareAgentHandler(BaseHTTPRequestHandler):
@@ -104,10 +125,18 @@ class HardwareAgentHandler(BaseHTTPRequestHandler):
             "Access-Control-Allow-Headers",
             "Content-Type"
         )
+        self.send_header("Access-Control-Allow-Private-Network", "true")
 
         self.end_headers()
 
     def do_GET(self):
+
+        if self.path == "/report":
+            if not last_report_html:
+                send_json(self, 404, {"success": False, "error": "No report is available. Run a hardware scan first."})
+                return
+            send_html_attachment(self, last_report_html)
+            return
 
         if self.path == "/health":
 
@@ -140,6 +169,7 @@ class HardwareAgentHandler(BaseHTTPRequestHandler):
         global scan_running
         global last_scan
         global last_scan_time
+        global last_report_html
 
         if self.path != "/scan":
 
@@ -176,6 +206,11 @@ class HardwareAgentHandler(BaseHTTPRequestHandler):
             last_scan = hardware
 
             last_scan_time = time.time()
+            last_report_html = generate_hardware_report(
+                hardware,
+                scan_timestamp=last_scan_time,
+                agent_version=AGENT_VERSION
+            )
 
             send_json(
                 self,
