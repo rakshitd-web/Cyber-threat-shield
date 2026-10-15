@@ -3,7 +3,7 @@ import json
 import threading
 import time
 from datetime import datetime
-from hardware_report import generate_hardware_report
+from services.hardware_report import generate_hardware_report
 
 from services.hardware_scanner import run_hardware_scan
 
