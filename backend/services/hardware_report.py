@@ -1,31 +1,376 @@
+
 import html
 import json
 from datetime import datetime
 
 
-def _pretty(value):
-    return html.escape(json.dumps(value, indent=2, ensure_ascii=False, default=str))
+def escape(value):
+    return html.escape(str(value)) if value is not None else "N/A"
 
 
-def generate_hardware_report(hardware, scan_timestamp=None, agent_version="1.1.0"):
-    '''Create a self-contained HTML report from one hardware scan result.'''
-    scanned_at = datetime.fromtimestamp(scan_timestamp).astimezone().isoformat(timespec="seconds") if scan_timestamp else datetime.now().astimezone().isoformat(timespec="seconds")
-    groups = ["system", "cpu", "gpu", "memory", "motherboard", "bios", "storage", "network", "usb", "battery"]
-    summary = hardware.get("integrity_summary", {}) if isinstance(hardware, dict) else {}
-    sections = []
-    for group in groups:
-        value = hardware.get(group, []) if isinstance(hardware, dict) else []
-        sections.append(f"<section><h2>{html.escape(group.replace('_', ' ').title())}</h2><pre>{_pretty(value)}</pre></section>")
-    sections.append(f"<section><h2>Integrity Summary</h2><pre>{_pretty(summary)}</pre></section>")
-    body = "\n".join(sections)
-    return f'''<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CyberThreat Shield Hardware Scan Report</title>
+def format_label(key):
+    return str(key).replace("_", " ").replace("-", " ").title()
+
+
+def format_value(value):
+    if value is None:
+        return "Not available"
+
+    if isinstance(value, bool):
+        return "Yes" if value else "No"
+
+    if isinstance(value, int) and value >= 1024**3:
+        return f"{value / (1024**3):.2f} GB"
+
+    return str(value)
+
+
+def render_fields(data, exclude=None):
+    exclude = set(exclude or [])
+    rows = []
+
+    if not isinstance(data, dict):
+        return ""
+
+    for key, value in data.items():
+        if key in exclude:
+            continue
+
+        label = escape(format_label(key))
+
+        if isinstance(value, (dict, list)):
+            content = escape(
+                json.dumps(value, indent=2, ensure_ascii=False, default=str)
+            )
+            rendered_value = f"""
+                <details>
+                    <summary>View details</summary>
+                    <pre>{content}</pre>
+                </details>
+            """
+        else:
+            rendered_value = escape(format_value(value))
+
+        rows.append(f"""
+            <div class="field">
+                <span class="field-label">{label}</span>
+                <div class="field-value">{rendered_value}</div>
+            </div>
+        """)
+
+    return "".join(rows)
+
+
+def render_component(group, data):
+    title = format_label(group)
+
+    if not data:
+        return f"""
+            <section class="component">
+                <h2>{escape(title)}</h2>
+                <p class="muted">No information available.</p>
+            </section>
+        """
+
+    items = data if isinstance(data, list) else [data]
+    cards = []
+
+    for index, item in enumerate(items, 1):
+        if isinstance(item, dict):
+            name = (
+                item.get("name")
+                or item.get("model")
+                or item.get("manufacturer")
+                or f"{title} {index}"
+            )
+
+            status = (
+                item.get("integrity", {}).get("status", "UNKNOWN")
+                if isinstance(item.get("integrity"), dict)
+                else item.get("status", "UNKNOWN")
+            )
+
+            fields = render_fields(item)
+
+            cards.append(f"""
+                <article class="device">
+                    <div class="device-header">
+                        <h3>{escape(name)}</h3>
+                        <span class="status">{escape(status)}</span>
+                    </div>
+                    <div class="fields">{fields}</div>
+                </article>
+            """)
+        else:
+            cards.append(f"<p>{escape(format_value(item))}</p>")
+
+    return f"""
+        <section class="component">
+            <div class="section-header">
+                <h2>{escape(title)}</h2>
+                <span class="count">{len(items)} items</span>
+            </div>
+            {"".join(cards)}
+        </section>
+    """
+
+
+def generate_hardware_report(
+    hardware,
+    scan_timestamp=None,
+    agent_version="1.1.0"
+):
+    if not isinstance(hardware, dict):
+        hardware = {}
+
+    try:
+        timestamp = (
+            datetime.fromtimestamp(float(scan_timestamp)).astimezone()
+            if scan_timestamp is not None
+            else datetime.now().astimezone()
+        )
+        scanned_at = timestamp.strftime("%d %b %Y, %I:%M:%S %p %Z")
+    except (TypeError, ValueError, OSError, OverflowError):
+        scanned_at = "Unavailable"
+
+    groups = [
+        "system",
+        "cpu",
+        "gpu",
+        "memory",
+        "motherboard",
+        "bios",
+        "storage",
+        "network",
+        "usb",
+        "battery",
+    ]
+
+    overview_groups = [
+        ("cpu", "CPU"),
+        ("gpu", "GPU"),
+        ("memory", "Memory"),
+        ("storage", "Storage"),
+        ("network", "Network"),
+        ("usb", "USB"),
+        ("battery", "Battery"),
+    ]
+
+    overview = []
+
+    for key, label in overview_groups:
+        value = hardware.get(key, [])
+
+        if isinstance(value, list):
+            count = len(value)
+        elif isinstance(value, dict):
+            count = 1 if value else 0
+        else:
+            count = 1 if value else 0
+
+        overview.append(f"""
+            <div class="overview-card">
+                <span>{escape(label)}</span>
+                <strong>{count}</strong>
+                <small>Detected items</small>
+            </div>
+        """)
+
+    sections = "".join(
+        render_component(group, hardware.get(group, []))
+        for group in groups
+    )
+
+    summary = hardware.get("integrity_summary", {})
+    summary_fields = render_fields(summary)
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CyberThreat Shield - Hardware Report</title>
 <style>
-:root{{color-scheme:light dark}}body{{font:15px/1.5 Arial,sans-serif;max-width:1100px;margin:32px auto;padding:0 18px;background:#0f172a;color:#e2e8f0}}
-header,section{{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:18px;margin:0 0 16px}}h1,h2{{margin-top:0}}.meta{{color:#cbd5e1}}pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:#020617;padding:14px;border-radius:8px;font-size:13px}}
-.note{{color:#cbd5e1;font-size:13px}}
-</style></head><body><header><h1>CyberThreat Shield Hardware Scan Report</h1>
-<p class="meta">Scan time: {html.escape(scanned_at)}<br>Agent version: {html.escape(agent_version)}</p>
-<p class="note">This report contains information reported by the local operating system and heuristic integrity checks. It is not a guarantee that hardware is genuine or physically healthy. USB ports that were not individually tested are not verified by this inventory scan.</p></header>
-{body}</body></html>'''
+:root {{
+    color-scheme: dark;
+    --background: #0b1120;
+    --panel: #131e30;
+    --inner: #18263a;
+    --border: #2b3b52;
+    --text: #e5edf7;
+    --muted: #9aabc1;
+    --accent: #38bdf8;
+}}
+* {{ box-sizing: border-box; }}
+body {{
+    margin: 0;
+    padding: 24px;
+    background: var(--background);
+    color: var(--text);
+    font: 15px/1.6 Arial, sans-serif;
+}}
+.container {{ max-width: 1100px; margin: auto; }}
+header, .component {{
+    padding: 22px;
+    margin-bottom: 18px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--panel);
+}}
+.brand {{
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}}
+h1 {{ margin: 8px 0; font-size: 32px; }}
+h2 {{ margin: 0; font-size: 20px; }}
+h3 {{ margin: 0; font-size: 16px; overflow-wrap: anywhere; }}
+.muted, small {{ color: var(--muted); }}
+.metadata {{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 24px;
+    margin-top: 18px;
+    color: var(--muted);
+    font-size: 13px;
+}}
+.section-title {{ margin: 28px 0 14px; }}
+.overview {{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+}}
+.overview-card {{
+    padding: 16px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}}
+.overview-card span, .overview-card small {{ display: block; }}
+.overview-card strong {{ display: block; font-size: 28px; margin: 5px 0; }}
+.section-header, .device-header {{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}}
+.section-header {{ margin-bottom: 16px; }}
+.count, .status {{
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--muted);
+    font-size: 12px;
+}}
+.device {{
+    padding: 16px;
+    margin-top: 12px;
+    background: var(--inner);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    min-width: 0;
+}}
+.fields {{ margin-top: 12px; }}
+.field {{
+    display: grid;
+    grid-template-columns: minmax(130px, 0.7fr) minmax(0, 1.3fr);
+    gap: 16px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    min-width: 0;
+}}
+.field:last-child {{ border-bottom: none; }}
+.field-label {{ color: var(--muted); }}
+.field-value {{ min-width: 0; overflow-wrap: anywhere; word-break: break-word; }}
+summary {{ color: var(--accent); cursor: pointer; }}
+pre {{
+    padding: 12px;
+    background: #080e19;
+    border-radius: 8px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font: 12px/1.6 Consolas, monospace;
+}}
+.notice {{
+    padding: 16px;
+    border: 1px solid #594b2c;
+    border-radius: 10px;
+    background: #292416;
+    color: #e7d9b5;
+    font-size: 13px;
+}}
+footer {{
+    margin-top: 22px;
+    padding: 16px 0;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+}}
+@media (max-width: 560px) {{
+    body {{ padding: 10px; }}
+    header, .component {{ padding: 15px; }}
+    h1 {{ font-size: 25px; }}
+    .field {{ grid-template-columns: 1fr; gap: 4px; }}
+}}
+@media print {{
+    :root {{
+        color-scheme: light;
+        --background: white;
+        --panel: white;
+        --inner: #f8fafc;
+        --border: #d1d5db;
+        --text: #111827;
+        --muted: #4b5563;
+        --accent: #0369a1;
+    }}
+    body {{ background: white; color: #111827; }}
+    header, .component, .overview-card, .device {{ break-inside: avoid; }}
+    pre {{ color: #111827; background: #f3f4f6; }}
+    .notice {{ background: white; color: #333; }}
+}}
+</style>
+</head>
+<body>
+<main class="container">
+<header>
+    <div class="brand">CyberThreat Shield</div>
+    <h1>Hardware Scan Report</h1>
+    <p class="muted">Hardware inventory and integrity assessment.</p>
+    <div class="metadata">
+        <span>Scan time: <strong>{escape(scanned_at)}</strong></span>
+        <span>Agent version: <strong>{escape(agent_version)}</strong></span>
+    </div>
+</header>
+
+<h2 class="section-title">Hardware Overview</h2>
+<div class="overview">
+    {"".join(overview)}
+</div>
+
+<h2 class="section-title">Component Details</h2>
+{sections}
+
+<section class="component">
+    <h2>Integrity Summary</h2>
+    <div class="fields">{summary_fields or '<p class="muted">No integrity summary available.</p>'}</div>
+</section>
+
+<div class="notice">
+    <strong>Report limitations</strong>
+    <p>
+        The report reflects information returned by the operating system
+        and heuristic checks. A VERIFIED result does not prove physical
+        authenticity or guarantee that hardware is free of tampering.
+        USB inventory does not confirm that every physical port was tested.
+    </p>
+</div>
+
+<footer>Generated by CyberThreat Shield Hardware Agent.</footer>
+</main>
+</body>
+</html>"""

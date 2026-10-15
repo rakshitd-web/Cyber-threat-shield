@@ -1343,7 +1343,7 @@ async function downloadHardwareReport() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = "cyberthreat_hardware_report.html";
+        link.download = "cyberthreat_hardware_report.pdf";
         document.body.appendChild(link);
         link.click();
         link.remove();
