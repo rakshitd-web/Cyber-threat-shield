@@ -105,16 +105,14 @@
             <h2 id="agentModalTitle">Set up Deep Scan</h2>
             <p>Deep Scan needs the CyberThreat Shield Hardware Agent to read detailed hardware information from this computer.</p>
             <ol>
-                <li>Download the agent executable.</li>
-                <li>Run the downloaded file on this computer. Windows may ask you to confirm that you trust the application.</li>
-                <li>Keep the agent running, return to this page, and select Check Agent.</li>
+                <li>Start the local agent on this computer by running <code>python hardware_agent.py</code> from your hardware-agent project folder.</li>
+                <li>Keep the terminal running while you use Deep Scan.</li>
+                <li>Return to this page and select Check Agent.</li>
             </ol>
-            <p class="agent-download-note">Only run the executable if you obtained it from your trusted CyberThreat Shield project distribution.</p>
             <div class="agent-modal-actions">
-                <a id="agentDownloadLink" class="scan-option-button download-agent-button" href="/static/HardwareAgent.exe" download>Download HardwareAgent.exe</a>
                 <button class="scan-option-button secondary-scan-button" type="button" onclick="checkAgentFromModal()">Check Agent</button>
             </div>
-            <p id="agentModalMessage" class="scan-message" role="status" aria-live="polite">The executable must be packaged and published at the download location before this link can work.</p>
+            <p id="agentModalMessage" class="scan-message" role="status" aria-live="polite">Waiting to detect the local Python agent.</p>
         </div>
     </div>
 
@@ -1102,8 +1100,8 @@ async function checkAgent() {
     } catch (error) {
         setAgentStatus(false, "Agent Offline");
         document.getElementById("agentVersion").textContent = "Local agent not detected";
-        document.getElementById("scanMessage").textContent = "Quick Scan is available. To use Deep Scan, run the local hardware agent.";
-        document.getElementById("agentModalMessage").textContent = "Agent not detected yet. Run the downloaded executable, then select Check Agent.";
+        document.getElementById("scanMessage").textContent = "Quick Scan is available. To use Deep Scan, start the local Python hardware agent.";
+        document.getElementById("agentModalMessage").textContent = "Agent not detected. Start hardware_agent.py in a terminal, then select Check Agent.";
         return false;
     }
 }
