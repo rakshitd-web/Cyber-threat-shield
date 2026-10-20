@@ -102,7 +102,7 @@
                     class="risk-badge"
                     id="riskBadge"
                 >
-                    -
+                    SCAN RESULT
                 </div>
 
             </div>
@@ -619,18 +619,22 @@ function displayScanResult(result) {
     const riskLevel =
         (result.risk_level || "UNKNOWN").toUpperCase();
 
-    riskBadge.textContent = riskLevel;
-
     riskBadge.className = "risk-badge";
 
     if (riskLevel === "LOW") {
+        riskBadge.textContent = "🟢 LOW RISK";
         riskBadge.classList.add("risk-low");
     }
     else if (riskLevel === "MEDIUM") {
+        riskBadge.textContent = "🟠 MEDIUM RISK";
         riskBadge.classList.add("risk-medium");
     }
     else if (riskLevel === "HIGH") {
+        riskBadge.textContent = "🔴 HIGH RISK";
         riskBadge.classList.add("risk-high");
+    }
+    else {
+        riskBadge.textContent = "⚪ UNKNOWN RISK";
     }
 
 

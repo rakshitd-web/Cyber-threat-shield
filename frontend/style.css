@@ -928,13 +928,14 @@ body .logout-btn button:hover {
 /* ── Risk Badge ── */
 
 .risk-badge {
-    min-width: 80px;
-    padding: 7px 14px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 700;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 1px;
     text-align: center;
-    box-sizing: border-box;
+    min-width: 160px;
+    display: inline-block;
 }
 
 .risk-low {

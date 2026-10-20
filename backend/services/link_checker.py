@@ -173,11 +173,25 @@ def scan_link(raw_url: str) -> dict:
     url = normalize_url(raw_url)
 
     if not is_valid_url(url):
-        return {"url": raw_url, "valid": False, "error": "Malformed URL"}
+        return {
+            "url": raw_url,
+            "valid": False,
+            "error": "Malformed URL"
+        }
 
-    hostname = urlparse(url).netloc
+    hostname = urlparse(url).hostname
 
+    # Check whether the domain actually exists
     domain_info = resolve_domain(hostname)
+
+    if not domain_info["resolvable"]:
+        return {
+            "url": raw_url,
+            "valid": False,
+            "error": "This domain does not exist or cannot be reached."
+        }
+
+    # Continue with the remaining checks only if domain exists
     ssl_info = check_ssl(hostname)
     redirect_info = analyze_redirects(url)
     structure_info = analyze_url_structure(url)
@@ -186,9 +200,19 @@ def scan_link(raw_url: str) -> dict:
         response = requests.get(url, timeout=8)
         header_info = check_security_headers(response.headers)
     except requests.RequestException:
-        header_info = {"hsts": False, "csp": False, "x_frame_options": False, "x_content_type_options": False}
+        header_info = {
+            "hsts": False,
+            "csp": False,
+            "x_frame_options": False,
+            "x_content_type_options": False
+        }
 
-    risk = compute_risk(ssl_info, redirect_info, header_info, structure_info)
+    risk = compute_risk(
+        ssl_info,
+        redirect_info,
+        header_info,
+        structure_info
+    )
 
     return {
         "url": raw_url,
