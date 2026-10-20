@@ -61,6 +61,160 @@ def render_fields(data, exclude=None):
     return "".join(rows)
 
 
+
+def _first_present(data, keys):
+    """Return the first non-empty value found for any of the supplied keys."""
+    if not isinstance(data, dict):
+        return None
+
+    for key in keys:
+        value = data.get(key)
+        if value not in (None, "", [], {}):
+            return value
+
+    return None
+
+
+def _as_explanation_text(value):
+    """Convert common strings, lists, and dictionaries into readable text."""
+    if value is None:
+        return None
+
+    if isinstance(value, str):
+        return value.strip() or None
+
+    if isinstance(value, (list, tuple)):
+        parts = [_as_explanation_text(item) for item in value]
+        parts = [part for part in parts if part]
+        return "; ".join(parts) if parts else None
+
+    if isinstance(value, dict):
+        # Prefer human-readable explanation fields over dumping raw metadata.
+        preferred = _first_present(
+            value,
+            ("description", "message", "reason", "finding", "name", "title", "detail")
+        )
+        if preferred is not None:
+            return _as_explanation_text(preferred)
+
+        return json.dumps(value, ensure_ascii=False, default=str)
+
+    return str(value)
+
+
+def render_issue_analysis(item):
+    """
+    Render cause, recommended solution, and potential risks from the scanner's
+    integrity metadata. Use cautious fallbacks when the scanner did not provide
+    a specific cause, remediation, or risk.
+    """
+    integrity = item.get("integrity", {}) if isinstance(item, dict) else {}
+    if not isinstance(integrity, dict):
+        integrity = {}
+
+    status = str(integrity.get("status", item.get("status", "UNKNOWN"))).strip().upper()
+
+    normal_statuses = {
+        "VERIFIED", "OK", "PASS", "PASSED", "HEALTHY", "NORMAL", "SUCCESS"
+    }
+
+    # Don't label a normal result as an issue.
+    if status in normal_statuses:
+        return ""
+
+    cause = _as_explanation_text(_first_present(
+        integrity,
+        ("cause", "root_cause", "reason", "explanation", "details", "message", "finding", "evidence")
+    ))
+    solution = _as_explanation_text(_first_present(
+        integrity,
+        ("solution", "recommended_solution", "recommendation", "remediation", "fix", "recommended_action", "action")
+    ))
+    risks = _as_explanation_text(_first_present(
+        integrity,
+        ("risks", "risk", "potential_risk", "impact", "consequences", "potential_impact")
+    ))
+
+    # Some analyzers may return structured checks/findings rather than top-level
+    # explanation fields. Extract available human-readable details when possible.
+    findings = _first_present(integrity, ("findings", "issues", "checks", "failed_checks", "warnings"))
+    if isinstance(findings, list) and findings:
+        finding_causes = []
+        finding_solutions = []
+        finding_risks = []
+
+        for finding in findings:
+            if not isinstance(finding, dict):
+                text_value = _as_explanation_text(finding)
+                if text_value:
+                    finding_causes.append(text_value)
+                continue
+
+            finding_cause = _as_explanation_text(_first_present(
+                finding, ("cause", "root_cause", "reason", "explanation", "details", "message", "finding", "evidence", "name")
+            ))
+            finding_solution = _as_explanation_text(_first_present(
+                finding, ("solution", "recommended_solution", "recommendation", "remediation", "fix", "recommended_action", "action")
+            ))
+            finding_risk = _as_explanation_text(_first_present(
+                finding, ("risks", "risk", "potential_risk", "impact", "consequences", "potential_impact")
+            ))
+
+            if finding_cause:
+                finding_causes.append(finding_cause)
+            if finding_solution:
+                finding_solutions.append(finding_solution)
+            if finding_risk:
+                finding_risks.append(finding_risk)
+
+        cause = cause or _as_explanation_text(finding_causes)
+        solution = solution or _as_explanation_text(finding_solutions)
+        risks = risks or _as_explanation_text(finding_risks)
+
+    if not cause:
+        if status in {"UNKNOWN", "UNVERIFIED", "NOT_CHECKED", "NOT CHECKED"}:
+            cause = (
+                "The scanner could not verify this component using the available "
+                "system information. This status does not by itself prove a fault or tampering."
+            )
+        else:
+            cause = (
+                "The scanner flagged this component, but the collected metadata does not "
+                "establish a specific root cause."
+            )
+
+    if not solution:
+        solution = (
+            "Review the evidence and verify the component's status using the operating "
+            "system or the device manufacturer's diagnostic tools. Apply a fix only after "
+            "the underlying issue is confirmed."
+        )
+
+    if not risks:
+        risks = (
+            "The potential impact cannot be determined from the available scan data alone. "
+            "Treat this as an item to investigate, not proof that the component is damaged "
+            "or compromised."
+        )
+
+    return f"""
+        <section class="issue-analysis">
+            <h4>Issue Analysis</h4>
+            <div class="issue-field">
+                <strong>Cause</strong>
+                <p>{escape(cause)}</p>
+            </div>
+            <div class="issue-field">
+                <strong>Recommended Solution</strong>
+                <p>{escape(solution)}</p>
+            </div>
+            <div class="issue-field">
+                <strong>Potential Risks</strong>
+                <p>{escape(risks)}</p>
+            </div>
+        </section>
+    """
+
 def render_component(group, data):
     title = format_label(group)
 
@@ -90,7 +244,8 @@ def render_component(group, data):
                 else item.get("status", "UNKNOWN")
             )
 
-            fields = render_fields(item)
+            fields = render_fields(item, exclude={"integrity"})
+            issue_analysis = render_issue_analysis(item)
 
             cards.append(f"""
                 <article class="device">
@@ -99,6 +254,7 @@ def render_component(group, data):
                         <span class="status">{escape(status)}</span>
                     </div>
                     <div class="fields">{fields}</div>
+                    {issue_analysis}
                 </article>
             """)
         else:
@@ -286,6 +442,32 @@ h3 {{ margin: 0; font-size: 16px; overflow-wrap: anywhere; }}
 .field:last-child {{ border-bottom: none; }}
 .field-label {{ color: var(--muted); }}
 .field-value {{ min-width: 0; overflow-wrap: anywhere; word-break: break-word; }}
+.issue-analysis {{
+    margin-top: 16px;
+    padding: 14px;
+    border: 1px solid #594b2c;
+    border-radius: 8px;
+    background: #211f1a;
+    break-inside: avoid;
+}}
+.issue-analysis h4 {{
+    margin: 0 0 10px;
+    font-size: 15px;
+    color: var(--accent);
+}}
+.issue-field {{
+    padding: 8px 0;
+    border-top: 1px solid var(--border);
+}}
+.issue-field strong {{
+    display: block;
+    margin-bottom: 3px;
+}}
+.issue-field p {{
+    margin: 0;
+    overflow-wrap: anywhere;
+}}
+
 summary {{ color: var(--accent); cursor: pointer; }}
 pre {{
     padding: 12px;
@@ -332,6 +514,9 @@ footer {{
     header, .component, .overview-card, .device {{ break-inside: avoid; }}
     pre {{ color: #111827; background: #f3f4f6; }}
     .notice {{ background: white; color: #333; }}
+    .issue-analysis {{ background: #fffaf0; color: #111827; border-color: #b8a57b; }}
+    .issue-analysis h4 {{ color: #075985; }}
+
 }}
 </style>
 </head>
