@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import base64
@@ -382,7 +383,7 @@ def _compute_risk(url: str, structure: dict, domain: dict, tls: dict, http: dict
             "disclaimer": "This heuristic assessment cannot guarantee that a URL is safe or malicious."}
 
 
-def scan_link(raw_url: str) -> dict:
+def _scan_link_core(raw_url: str) -> dict:
     """Scan one public HTTP/HTTPS URL; return a JSON-serializable report."""
     started = time.monotonic()
     try:
@@ -428,3 +429,131 @@ def scan_link(raw_url: str) -> dict:
                 "Public DNS, TLS, HTTP, RDAP and optional threat-intelligence checks are best-effort.",
                 "Threat-intelligence checks require API keys in the server environment.",
                 "A low risk score does not prove that a URL is safe."]}}
+
+
+
+def scan_link(raw_url: str) -> dict:
+    """Frontend-compatible public scan function.
+
+    Keeps the detailed technical payload while exposing the flat fields that
+    link_scanner.html expects.
+    """
+    result = _scan_link_core(raw_url)
+
+    # A validation failure is returned as a structured result; expose the
+    # fields the frontend uses so it can show an understandable error state.
+    if not result.get("success"):
+        return {
+            **result,
+            "valid": False,
+            "normalized_url": "",
+            "risk_level": "UNKNOWN",
+            "risk_score": 0,
+            "risk_reasons": [result.get("error", "The URL could not be scanned.")],
+            "findings": [],
+        }
+
+    risk = result.get("risk") or {}
+    domain = result.get("domain") or {}
+    tls = result.get("ssl") or {}
+    http = result.get("http") or {}
+    structure = result.get("url_structure") or {}
+    security = result.get("security_headers") or {}
+    redirects = result.get("redirects") or {}
+    rdap = result.get("rdap") or {}
+
+    checks = security.get("checks") or {}
+
+    def header_present(name: str) -> bool:
+        # Read the normalized detailed representation; do not infer presence
+        # from whether the target website itself is trustworthy.
+        item = checks.get(name)
+        if isinstance(item, dict):
+            return bool(item.get("present"))
+        return name in (http.get("headers") or {})
+
+    # Convert detailed findings to the names expected by the current template.
+    findings = []
+    for item in risk.get("findings", []):
+        if not isinstance(item, dict):
+            continue
+        findings.append({
+            **item,
+            "id": item.get("code"),
+            "explanation": item.get("details", item.get("explanation", "")),
+        })
+
+    reasons = [
+        f"{item.get('title', 'Finding')}: {item.get('details', '')}".strip()
+        for item in findings
+    ]
+
+    redirect_chain = redirects.get("chain", [])
+    redirect_details = redirects.get("details", [])
+    # Prefer structured hops so the frontend can display HTTP status and target.
+    display_chain = redirect_details if redirect_details else redirect_chain
+
+    normalized_ssl = {
+        **tls,
+        "https": bool(tls.get("https")),
+        "valid_cert": bool(tls.get("valid")),
+        "expires": tls.get("not_after") or "-",
+    }
+
+    normalized_redirects = {
+        **redirects,
+        "count": redirects.get("count", len(redirect_chain)),
+        "chain": display_chain,
+        "final_status_code": http.get("status_code"),
+        "final_url": http.get("final_url") or result.get("url"),
+    }
+
+    normalized_structure = {
+        **structure,
+        "subdomains": structure.get("subdomain_count", 0),
+        "params": structure.get("params", ""),
+        "suspicious_encoding": bool(
+            structure.get("has_percent_encoding")
+            or structure.get("has_punycode")
+            or structure.get("has_at_symbol")
+        ),
+    }
+
+    normalized_security = {
+        **security,
+        "hsts": header_present("strict-transport-security"),
+        "csp": header_present("content-security-policy"),
+        "x_frame_options": header_present("x-frame-options"),
+        "x_content_type_options": header_present("x-content-type-options"),
+    }
+
+    collection_status = result.get("collection_status") or {}
+    return {
+        **result,
+        "valid": True,
+        "normalized_url": result.get("url", ""),
+        "risk_level": str(risk.get("level", "Unknown")).upper(),
+        "risk_score": risk.get("score", 0),
+        "risk_reasons": reasons,
+        "findings": findings,
+        "risk_disclaimer": risk.get("disclaimer") or
+            "Risk scores are heuristic and do not prove that a website is safe or malicious.",
+        "confirmed_threat_match": bool(risk.get("known_threat")),
+        "scoring_model": "Weighted heuristic scoring with optional threat-intelligence checks",
+        "domain": {
+            **domain,
+            "hostname": domain.get("hostname") or (result.get("url") and urlparse(result["url"]).hostname),
+            "ip": domain.get("ip") or (
+                (domain.get("ip_addresses") or [None])[0]
+            ),
+            "resolvable": bool(domain.get("ip_addresses")),
+        },
+        "ssl": normalized_ssl,
+        "redirects": normalized_redirects,
+        "url_structure": normalized_structure,
+        "security_headers": normalized_security,
+        "registration": rdap,
+        "scan_duration_ms": round(float(result.get("duration_seconds", 0)) * 1000),
+        "scanner_version": "2.1",
+        "collection_status": collection_status,
+    }
