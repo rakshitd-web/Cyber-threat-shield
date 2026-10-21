@@ -23,3 +23,6 @@ joblib==1.4.2
 reportlab==4.4.10
 python-dotenv==1.0.1
 playwright
+dnspython>=2.6,<3.0
+requests>=2.31,<3.0
+tldextract>=5.1,<6.0
