@@ -1,3 +1,11 @@
+from urllib.parse import urlparse
+import requests
+import socket
+import ssl
+from datetime import datetime, timezone
+import tldextract
+import re
+
     cross_domain = []
 
     for hop in redirects.get("chain", []):
