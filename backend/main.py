@@ -133,6 +133,13 @@ def home(request: Request, session: str = Cookie(default=None)):
     return templates.TemplateResponse(request, "home.html")
 
 
+@app.get("/unified-scanner", response_class=HTMLResponse)
+def unified_scanner_page(request: Request, session: str = Cookie(default=None)):
+    if not session or not verify_session(session):
+        return RedirectResponse(url="/", status_code=303)
+    return templates.TemplateResponse(request, "unified_scanner.html")
+
+
 @app.get("/scanner", response_class=HTMLResponse)
 def scanner(request: Request, session: str = Cookie(default=None)):
     if not session or not verify_session(session):

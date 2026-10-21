@@ -1334,3 +1334,212 @@ body .logout-btn button:hover {
     }
 }
 }
+
+/* Unified scanner page */
+.unified-page-container {
+    width: min(1100px, 92%);
+    margin: 30px auto 50px;
+    text-align: left;
+}
+
+.unified-scan-container {
+    width: 100%;
+    max-width: none;
+    margin: 0 auto 24px;
+    padding: 28px;
+    text-align: center;
+    background: rgba(5, 12, 45, 0.88);
+    border: 1px solid rgba(74, 222, 214, 0.35);
+    border-radius: 12px;
+    box-sizing: border-box;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+}
+
+.unified-scan-container h2 {
+    color: #42c9c0;
+    margin: 0 0 10px;
+}
+
+.unified-scan-container p {
+    color: #e0e7ff;
+    line-height: 1.5;
+}
+
+.unified-scan-container form label {
+    display: block;
+    color: #c8d4eb;
+    text-align: left;
+    max-width: 850px;
+    margin: 22px auto 8px;
+    font-size: 14px;
+}
+
+.unified-input-row {
+    display: flex;
+    align-items: stretch;
+    gap: 12px;
+    max-width: 850px;
+    margin: 0 auto;
+}
+
+.unified-scan-container .unified-input-row input {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    margin: 0;
+    padding: 12px 15px;
+    border: 1px solid #42c9c0;
+    border-radius: 8px;
+    background: #080f30;
+    color: #fff;
+    font-size: 15px;
+    box-sizing: border-box;
+}
+
+.unified-scan-container .unified-input-row button {
+    margin: 0;
+    white-space: nowrap;
+}
+
+.unified-scan-message {
+    min-height: 20px;
+    margin: 16px 0 0;
+    color: #aeb8cc;
+}
+
+.unified-scan-results {
+    padding: 24px;
+    background: rgba(5, 10, 45, 0.86);
+    border: 1px solid rgba(120, 160, 255, 0.25);
+    border-radius: 12px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+    overflow-wrap: anywhere;
+}
+
+.unified-results-heading {
+    margin: 0 0 12px;
+    color: #4fc5be;
+    text-align: center;
+}
+
+.unified-result-url,
+.unified-overall-status {
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+
+.unified-overall-status {
+    padding: 12px;
+    border: 1px solid rgba(74, 222, 214, 0.25);
+    border-radius: 8px;
+    background: rgba(0, 212, 255, 0.05);
+}
+
+.unified-module-result {
+    margin-top: 18px;
+    padding: 18px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(120, 160, 255, 0.18);
+    border-radius: 9px;
+}
+
+.unified-module-result h3 {
+    margin: 0 0 14px;
+    padding-bottom: 10px;
+    text-align: left;
+    color: #4fc5be;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.unified-detail-row {
+    display: grid;
+    grid-template-columns: minmax(150px, 0.35fr) minmax(0, 1fr);
+    gap: 12px;
+    padding: 9px 0;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.unified-detail-row strong {
+    color: #aeb8cc;
+    text-transform: capitalize;
+}
+
+.unified-detail-row span {
+    color: #e4e7ec;
+    overflow-wrap: anywhere;
+}
+
+.unified-detail {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px solid rgba(120, 160, 255, 0.15);
+    border-radius: 6px;
+    text-align: left;
+}
+
+.unified-detail summary {
+    color: #74c0fc;
+    cursor: pointer;
+}
+
+.unified-value-list {
+    text-align: left;
+    padding-left: 22px;
+}
+
+.unified-value-list li {
+    margin: 7px 0;
+    overflow-wrap: anywhere;
+}
+
+.unified-module-error {
+    color: #ff8787;
+}
+
+.unified-scan-disclaimer {
+    margin-top: 18px;
+    color: #aeb8cc;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+@media (max-width: 700px) {
+    .unified-page-container {
+        width: 94%;
+    }
+
+    .unified-scan-container,
+    .unified-scan-results {
+        padding: 18px;
+    }
+
+    .unified-input-row {
+        flex-direction: column;
+    }
+
+    .unified-scan-container .unified-input-row input,
+    .unified-scan-container .unified-input-row button {
+        width: 100%;
+        max-width: none;
+    }
+
+    .unified-detail-row {
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
+
+    .header-actions {
+        right: 8px;
+    }
+
+    .site-name {
+        font-size: 22px;
+    }
+
+    .logo {
+        width: 48px;
+        height: 48px;
+    }
+}
+

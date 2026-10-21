@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Home page</title>
+    <title>Home Page | Cyber Threatshield</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -9,204 +9,69 @@
 <div class="site-header">
     <img src="/static/logo.png" alt="Logo" class="logo">
     <h1 class="site-name">Cyber Threatshield</h1>
+
     <div class="header-actions">
         <div class="logout-btn">
-        <a href="/logout"><button type="button">Logout</button></a>
+            <a href="/logout">
+                <button type="button">Logout</button>
+            </a>
         </div>
     </div>
-</div>
-    
-<div class="unified-scan-container">
-    <h2>Unified Website Security Scan</h2>
-    <p>
-        Scan a website using Link Scanner, Vulnerability Detection,
-        and Phishing Detection in one operation.
-    </p>
-
-    <form id="unifiedScanForm">
-        <input
-            id="unifiedScanUrl"
-            type="text"
-            name="url"
-            placeholder="Enter website URL (e.g. https://example.com)"
-            autocomplete="url"
-            required
-        >
-        <button id="unifiedScanButton" type="submit">Run Unified Scan</button>
-    </form>
-
-    <p id="unifiedScanMessage" class="unified-scan-message" role="status" aria-live="polite"></p>
-    <div id="unifiedScanResults" class="unified-scan-results" hidden></div>
 </div>
 
 <div class="home-container">
 
     <div class="button-block">
         <h2>Phishing Detection</h2>
-        <p>Detect phishing websites quickly before you interact with them.</p>
+        <p>
+            Detect phishing websites quickly before you interact with them.
+        </p>
         <a href="/scanner">
-            <button>Scan Now</button>
+            <button type="button">Scan Now</button>
         </a>
     </div>
 
     <div class="button-block">
         <h2>Vulnerability Check</h2>
-        <p>Scan website links to detect potential security vulnerabilities.</p>
+        <p>
+            Scan website links to detect potential security vulnerabilities.
+        </p>
         <a href="/vuln">
-            <button>Scan Now</button>
+            <button type="button">Scan Now</button>
         </a>
     </div>
 
     <div class="button-block">
         <h2>Link Scanner</h2>
-        <p>Check if a link is safe before visiting it.</p>
+        <p>
+            Check if a link is safe before visiting it.
+        </p>
         <a href="/link_scanner">
-            <button>Scan Now</button>
+            <button type="button">Scan Now</button>
         </a>
     </div>
 
     <div class="button-block">
         <h2>Hardware Scanner</h2>
-        <p>Scans hardware for security, integrity, health and vulnerabilities.</p>
+        <p>
+            Scan hardware for security, integrity, health, and vulnerabilities.
+        </p>
         <a href="/hardware">
-            <button>Scan Now</button>
+            <button type="button">Scan Now</button>
+        </a>
+    </div>
+
+    <div class="button-block">
+        <h2>Unified Website Scanner</h2>
+        <p>
+            Check your website for security threats in one scan.
+        </p>
+        <a href="/unified-scanner">
+            <button type="button">Start Unified Scan</button>
         </a>
     </div>
 
 </div>
-
-
-<script>
-(() => {
-    const form = document.getElementById("unifiedScanForm");
-    if (!form) return;
-
-    const urlInput = document.getElementById("unifiedScanUrl");
-    const button = document.getElementById("unifiedScanButton");
-    const message = document.getElementById("unifiedScanMessage");
-    const results = document.getElementById("unifiedScanResults");
-
-    function addText(parent, tag, text, className) {
-        const element = document.createElement(tag);
-        element.textContent = text == null ? "" : String(text);
-        if (className) element.className = className;
-        parent.appendChild(element);
-        return element;
-    }
-
-    function renderValue(parent, value) {
-        if (value === null || value === undefined || value === "") return;
-        if (typeof value !== "object") {
-            addText(parent, "p", String(value));
-            return;
-        }
-        if (Array.isArray(value)) {
-            const list = document.createElement("ul");
-            value.forEach(item => {
-                const li = document.createElement("li");
-                if (item && typeof item === "object") {
-                    li.textContent = Object.entries(item)
-                        .map(([key, val]) => `${key}: ${typeof val === "object" ? JSON.stringify(val) : val}`)
-                        .join(" | ");
-                } else {
-                    li.textContent = String(item);
-                }
-                list.appendChild(li);
-            });
-            parent.appendChild(list);
-            return;
-        }
-        Object.entries(value).forEach(([key, val]) => {
-            if (val === null || val === undefined || val === "") return;
-            if (typeof val === "object") {
-                const details = document.createElement("details");
-                const summary = document.createElement("summary");
-                summary.textContent = key.replaceAll("_", " ");
-                details.appendChild(summary);
-                renderValue(details, val);
-                parent.appendChild(details);
-            } else {
-                const row = document.createElement("p");
-                const label = document.createElement("strong");
-                label.textContent = key.replaceAll("_", " ") + ": ";
-                row.appendChild(label);
-                row.appendChild(document.createTextNode(String(val)));
-                parent.appendChild(row);
-            }
-        });
-    }
-
-    function renderReport(data) {
-        results.replaceChildren();
-        results.hidden = false;
-
-        const heading = addText(results, "h3", "Unified Scan Report");
-        heading.className = "unified-results-heading";
-        addText(results, "p", `URL: ${data.url || urlInput.value}`, "unified-result-url");
-        addText(results, "p", `Overall assessment: ${data.overall_status || "Review findings"}`, "unified-overall-status");
-
-        const modules = data.modules || {};
-        const labels = {
-            link_scanner: "Link Scanner",
-            vulnerability_detection: "Vulnerability Detection",
-            phishing_detection: "Phishing Detection"
-        };
-
-        Object.entries(labels).forEach(([key, label]) => {
-            const section = document.createElement("section");
-            section.className = "unified-module-result";
-            addText(section, "h4", label);
-
-            const moduleData = modules[key];
-            if (!moduleData) {
-                addText(section, "p", "No result was returned by this module.");
-            } else if (moduleData.error) {
-                addText(section, "p", `Module failed: ${moduleData.error}`, "unified-module-error");
-            } else {
-                renderValue(section, moduleData);
-            }
-            results.appendChild(section);
-        });
-
-        if (data.disclaimer) addText(results, "p", data.disclaimer, "unified-scan-disclaimer");
-    }
-
-    form.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const url = urlInput.value.trim();
-        if (!url) return;
-
-        button.disabled = true;
-        message.textContent = "Scanning with all three modules. This may take a while.";
-        results.hidden = true;
-        results.replaceChildren();
-
-        try {
-            const response = await fetch("/unified-scan/", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "same-origin",
-                body: JSON.stringify({ url })
-            });
-
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                if (response.status === 401) {
-                    throw new Error(data.detail || "Your session has expired. Please log in again.");
-                }
-                throw new Error(data.detail || "Unified scan failed.");
-            }
-
-            renderReport(data);
-            message.textContent = "Scan completed. Review the results for each module.";
-        } catch (error) {
-            message.textContent = error.message || "Unable to complete the unified scan.";
-        } finally {
-            button.disabled = false;
-        }
-    });
-})();
-</script>
 
 </body>
 </html>

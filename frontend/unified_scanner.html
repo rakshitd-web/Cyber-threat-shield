@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified Website Scanner | Cyber Threatshield</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="site-header">
+    <img src="/static/logo.png" alt="Logo" class="logo">
+    <h1 class="site-name">Cyber Threatshield</h1>
+    <div class="header-actions">
+        <div class="home-btn">
+            <a href="/home"><button type="button">Home</button></a>
+        </div>
+        <div class="logout-btn">
+            <a href="/logout"><button type="button">Logout</button></a>
+        </div>
+    </div>
+</div>
+
+<main class="unified-page-container">
+    <section class="unified-scan-container">
+        <h2>Unified Website Security Scan</h2>
+        <p>Run Phishing Detection, Link Scanner, and Vulnerability Detection against the same URL.</p>
+        <form id="unifiedScanForm">
+            <label for="unifiedScanUrl">Website URL</label>
+            <div class="unified-input-row">
+                <input id="unifiedScanUrl" name="url" type="url"
+                       placeholder="https://example.com" autocomplete="url" required>
+                <button id="unifiedScanButton" type="submit">Run Unified Scan</button>
+            </div>
+        </form>
+        <p id="unifiedScanMessage" class="unified-scan-message" role="status" aria-live="polite"></p>
+    </section>
+
+    <section id="unifiedScanResults" class="unified-scan-results" hidden aria-live="polite"></section>
+</main>
+
+<script>
+(() => {
+    const form = document.getElementById("unifiedScanForm");
+    const input = document.getElementById("unifiedScanUrl");
+    const button = document.getElementById("unifiedScanButton");
+    const message = document.getElementById("unifiedScanMessage");
+    const results = document.getElementById("unifiedScanResults");
+
+    function addText(parent, tag, text, className) {
+        const element = document.createElement(tag);
+        element.textContent = text == null ? "" : String(text);
+        if (className) element.className = className;
+        parent.appendChild(element);
+        return element;
+    }
+
+    function humanize(key) {
+        return String(key).replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function renderValue(parent, value, depth = 0) {
+        if (value === null || value === undefined || value === "") return;
+
+        if (typeof value !== "object") {
+            addText(parent, "p", String(value), "unified-value");
+            return;
+        }
+
+        if (Array.isArray(value)) {
+            if (!value.length) return;
+            const list = document.createElement("ul");
+            list.className = "unified-value-list";
+            value.forEach(item => {
+                const li = document.createElement("li");
+                if (item && typeof item === "object") {
+                    renderValue(li, item, depth + 1);
+                } else {
+                    li.textContent = String(item);
+                }
+                list.appendChild(li);
+            });
+            parent.appendChild(list);
+            return;
+        }
+
+        Object.entries(value).forEach(([key, val]) => {
+            if (val === null || val === undefined || val === "") return;
+            if (typeof val === "object") {
+                const details = document.createElement("details");
+                details.className = "unified-detail";
+                const summary = document.createElement("summary");
+                summary.textContent = humanize(key);
+                details.appendChild(summary);
+                renderValue(details, val, depth + 1);
+                parent.appendChild(details);
+            } else {
+                const row = document.createElement("div");
+                row.className = "unified-detail-row";
+                addText(row, "strong", humanize(key) + ":");
+                addText(row, "span", String(val));
+                parent.appendChild(row);
+            }
+        });
+    }
+
+    function renderReport(data) {
+        results.replaceChildren();
+        results.hidden = false;
+
+        const heading = addText(results, "h2", "Unified Scan Report");
+        heading.className = "unified-results-heading";
+        addText(results, "p", "Scanned URL: " + (data.url || input.value), "unified-result-url");
+
+        const overall = data.overall_status || data.overall_assessment || data.status;
+        if (overall) addText(results, "p", "Overall assessment: " + overall, "unified-overall-status");
+
+        const modules = data.modules || {};
+        const labels = {
+            phishing_detection: "Phishing Detection",
+            link_scanner: "Link Scanner",
+            vulnerability_detection: "Vulnerability Detection"
+        };
+
+        let renderedCount = 0;
+        Object.entries(labels).forEach(([key, label]) => {
+            const section = document.createElement("section");
+            section.className = "unified-module-result";
+            addText(section, "h3", label);
+
+            const moduleData = modules[key];
+            if (moduleData === undefined || moduleData === null) {
+                addText(section, "p", "No result was returned by this module.");
+            } else if (moduleData.error) {
+                addText(section, "p", "Module error: " + moduleData.error, "unified-module-error");
+                const safeDetails = {...moduleData};
+                delete safeDetails.error;
+                renderValue(section, safeDetails);
+            } else {
+                renderValue(section, moduleData);
+            }
+            results.appendChild(section);
+            renderedCount++;
+        });
+
+        if (!renderedCount) {
+            const details = document.createElement("section");
+            details.className = "unified-module-result";
+            addText(details, "h3", "Scan Details");
+            renderValue(details, data);
+            results.appendChild(details);
+        }
+
+        if (data.disclaimer) addText(results, "p", data.disclaimer, "unified-scan-disclaimer");
+    }
+
+    form.addEventListener("submit", async event => {
+        event.preventDefault();
+        const url = input.value.trim();
+        if (!url) return;
+
+        button.disabled = true;
+        message.textContent = "Scanning. This may take some time.";
+        results.hidden = true;
+        results.replaceChildren();
+
+        try {
+            const response = await fetch("/unified-scan/", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                credentials: "same-origin",
+                body: JSON.stringify({url})
+            });
+
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                if (response.status === 401 || response.status === 403) {
+                    throw new Error("Your session may have expired. Log in again and retry.");
+                }
+                throw new Error(data.detail || data.error || "Unified scan failed.");
+            }
+            if (data.error && !data.modules) throw new Error(data.error);
+
+            renderReport(data);
+            message.textContent = "Scan completed. Review each module's findings.";
+        } catch (error) {
+            message.textContent = error.message || "Unable to complete the unified scan.";
+        } finally {
+            button.disabled = false;
+        }
+    });
+})();
+</script>
+</body>
+</html>
