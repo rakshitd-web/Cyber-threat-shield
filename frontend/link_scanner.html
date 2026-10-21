@@ -8,6 +8,12 @@
     <title>Link Scanner - CyberThreat Shield</title>
 
     <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .link-technical-data { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 420px; overflow: auto; padding: 12px; border-radius: 6px; background: rgba(127,127,127,.08); font-size: .85rem; }
+        .link-finding-item { border: 1px solid rgba(127,127,127,.35); border-radius: 8px; padding: 12px; margin: 10px 0; overflow-wrap: anywhere; }
+        .link-finding-item h4 { margin-top: 0; }
+        .link-finding-item pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+    </style>
 </head>
 
 <body>
@@ -519,6 +525,43 @@
 
             </div>
 
+            <!-- EXPANDED SCAN DATA -->
+            <div class="link-result-card">
+                <h3>Risk Score and Findings</h3>
+                <p id="riskDisclaimer">Risk assessment is based on available evidence and configured checks.</p>
+                <div id="detailedFindings"></div>
+            </div>
+
+            <div class="link-result-card">
+                <h3>Domain Registration (RDAP)</h3>
+                <pre id="registrationDetails" class="link-technical-data">No data collected.</pre>
+            </div>
+
+            <div class="link-result-card">
+                <h3>DNS Records</h3>
+                <pre id="dnsDetails" class="link-technical-data">No data collected.</pre>
+            </div>
+
+            <div class="link-result-card">
+                <h3>HTTP Response Details</h3>
+                <pre id="httpDetails" class="link-technical-data">No data collected.</pre>
+            </div>
+
+            <div class="link-result-card">
+                <h3>TLS Certificate Details</h3>
+                <pre id="tlsDetails" class="link-technical-data">No data collected.</pre>
+            </div>
+
+            <div class="link-result-card">
+                <h3>Threat Intelligence Results</h3>
+                <pre id="threatIntelDetails" class="link-technical-data">No data collected.</pre>
+            </div>
+
+            <div class="link-result-card">
+                <h3>Collection Status and Metadata</h3>
+                <pre id="collectionDetails" class="link-technical-data">No data collected.</pre>
+            </div>
+
         </div>
 
     </div>
@@ -620,21 +663,22 @@ function displayScanResult(result) {
         (result.risk_level || "UNKNOWN").toUpperCase();
 
     riskBadge.className = "risk-badge";
+    const riskScore = Number.isFinite(Number(result.risk_score)) ? Number(result.risk_score) : null;
 
     if (riskLevel === "LOW") {
-        riskBadge.textContent = "🟢 LOW RISK";
+        riskBadge.textContent = "LOW RISK";
         riskBadge.classList.add("risk-low");
     }
     else if (riskLevel === "MEDIUM") {
-        riskBadge.textContent = "🟠 MEDIUM RISK";
+        riskBadge.textContent = "MEDIUM RISK";
         riskBadge.classList.add("risk-medium");
     }
     else if (riskLevel === "HIGH") {
-        riskBadge.textContent = "🔴 HIGH RISK";
+        riskBadge.textContent = "HIGH RISK";
         riskBadge.classList.add("risk-high");
     }
     else {
-        riskBadge.textContent = "⚪ UNKNOWN RISK";
+        riskBadge.textContent = "UNKNOWN RISK";
     }
 
 
@@ -728,8 +772,10 @@ function displayScanResult(result) {
 
             div.className = "redirect-item";
 
-            div.textContent =
-                `${index + 1}. ${url}`;
+            const hopUrl = typeof url === "string" ? url : (url.url || "Unknown URL");
+            const hopStatus = typeof url === "object" && url.status_code ? ` [HTTP ${url.status_code}]` : "";
+            const hopTarget = typeof url === "object" && url.location ? ` → ${url.location}` : "";
+            div.textContent = `${index + 1}. ${hopUrl}${hopStatus}${hopTarget}`;
 
             redirectChain.appendChild(div);
         });
@@ -773,8 +819,74 @@ function displayScanResult(result) {
             : "Missing";
 
 
+    // Display the numeric score when the backend supplies it.
+    if (riskScore !== null) {
+        riskBadge.textContent += ` · ${riskScore}/100`;
+    }
+
+    // Expanded technical data and finding explanations.
+    renderAdvancedData(result);
+
     // Show results
     resultContainer.style.display = "block";
+}
+
+function renderJson(elementId, value) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    element.textContent = value && Object.keys(value).length
+        ? JSON.stringify(value, null, 2)
+        : "No data available.";
+}
+
+function renderAdvancedData(result) {
+    renderJson("registrationDetails", result.registration || {});
+    renderJson("dnsDetails", result.dns || {});
+    renderJson("httpDetails", result.http || {});
+    renderJson("tlsDetails", result.ssl || {});
+    renderJson("threatIntelDetails", result.threat_intelligence || {});
+    renderJson("collectionDetails", {
+        scanned_at: result.scanned_at,
+        scan_duration_ms: result.scan_duration_ms,
+        scanner_version: result.scanner_version,
+        collection_status: result.collection_status || {},
+        scoring_model: result.scoring_model,
+        confirmed_threat_match: result.confirmed_threat_match
+    });
+
+    const disclaimer = document.getElementById("riskDisclaimer");
+    if (disclaimer) disclaimer.textContent = result.risk_disclaimer ||
+        "Risk scores are heuristic and do not prove that a website is safe or malicious.";
+
+    const findingsContainer = document.getElementById("detailedFindings");
+    if (!findingsContainer) return;
+    findingsContainer.replaceChildren();
+    const findings = Array.isArray(result.findings) ? result.findings : [];
+    if (!findings.length) {
+        const p = document.createElement("p");
+        p.textContent = "No detailed findings were returned by the backend.";
+        findingsContainer.appendChild(p);
+        return;
+    }
+    findings.forEach(finding => {
+        const article = document.createElement("article");
+        article.className = "link-finding-item";
+        const heading = document.createElement("h4");
+        heading.textContent = `${finding.title || finding.id || "Finding"} (${finding.points || 0} points)`;
+        const severity = document.createElement("p");
+        severity.textContent = `Severity: ${(finding.severity || "unknown").toUpperCase()}`;
+        const explanation = document.createElement("p");
+        explanation.textContent = finding.explanation || "No explanation provided.";
+        const recommendation = document.createElement("p");
+        recommendation.textContent = `Recommendation: ${finding.recommendation || "Review this finding."}`;
+        article.append(heading, severity, explanation, recommendation);
+        if (finding.evidence !== null && finding.evidence !== undefined) {
+            const evidence = document.createElement("pre");
+            evidence.textContent = `Evidence: ${JSON.stringify(finding.evidence, null, 2)}`;
+            article.appendChild(evidence);
+        }
+        findingsContainer.appendChild(article);
+    });
 }
 
     </script>
