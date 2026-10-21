@@ -1256,4 +1256,81 @@ body .logout-btn button:hover {
     .agent-modal-content {
         padding: 24px 18px;
     }
+    .unified-scan-container {
+    width: 80%;
+    max-width: 850px;
+    margin: 30px auto;
+    padding: 25px;
+    text-align: center;
+    background: rgba(5, 12, 45, 0.88);
+    border: 1px solid rgba(74, 222, 214, 0.35);
+    border-radius: 12px;
+    box-sizing: border-box;
+}
+
+.unified-scan-container h2 {
+    color: #42c9c0;
+    margin: 0 0 10px;
+}
+
+.unified-scan-container p {
+    color: #e0e7ff;
+    margin-bottom: 20px;
+}
+
+.unified-scan-container form {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.unified-scan-container input {
+    flex: 1;
+    min-width: 240px;
+    max-width: 600px;
+    padding: 12px 15px;
+    border: 1px solid #42c9c0;
+    border-radius: 8px;
+    background: #080f30;
+    color: white;
+    font-size: 15px;
+    box-sizing: border-box;
+}
+
+.unified-scan-container input::placeholder {
+    color: #aab6d3;
+}
+
+.unified-scan-container button {
+    padding: 12px 22px;
+    border: none;
+    border-radius: 8px;
+    background: #4ecdc4;
+    color: #061333;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.unified-scan-container button:hover {
+    background: #65ddd4;
+}
+
+@media (max-width: 600px) {
+    .unified-scan-container {
+        width: 94%;
+        padding: 18px;
+    }
+
+    .unified-scan-container form {
+        flex-direction: column;
+    }
+
+    .unified-scan-container input,
+    .unified-scan-container button {
+        width: 100%;
+        max-width: none;
+    }
+}
 }
