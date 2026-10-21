@@ -1,10 +1,17 @@
     cross_domain = []
+
     for hop in redirects.get("chain", []):
         dest = hop.get("location")
-        if dest and urlparse(dest).hostname and urlparse(dest).hostname != structure.get("hostname"):
+        if (
+            dest
+            and urlparse(dest).hostname
+            and urlparse(dest).hostname != structure.get("hostname")
+        ):
             cross_domain.append(dest)
+
     if cross_domain:
-        add("cross_domain_redirect", "Cross-domain redirect detected", 5, "low", "At least one redirect points to a different hostname; this can be legitimate but deserves review.", "Confirm that each destination belongs to the expected service.", cross_domain)
+        add(
+            "cross_domain_redirect","Cross-domain redirect detected",5,"low","At least one redirect points to a different hostname; ""this can be legitimate but deserves review.","Confirm that each destination belongs to the expected service.",cross_domain,)
     if structure.get("punycode_hostname"):
         add("punycode", "Internationalized/punycode hostname", 8, "medium", "The hostname contains punycode. This is not inherently malicious but can be used in lookalike domains.", "Inspect the rendered hostname carefully.")
     if structure.get("contains_ip_address"):
