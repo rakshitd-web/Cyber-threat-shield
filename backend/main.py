@@ -17,7 +17,7 @@ from urllib.parse import urlparse
 import tldextract
 import bcrypt
 
-from routers import fraud, vulnerability, hardware, link_scan
+from routers import fraud, vulnerability, hardware, link_scan, unified_scan
 from services.ml_model import predict
 from database.db import init_db, create_user, get_user
 
@@ -36,6 +36,7 @@ app.include_router(fraud.router, prefix="/fraud", tags=["Fraud Detection"])
 app.include_router(vulnerability.router, prefix="/vuln", tags=["Vulnerability Scanner"])
 app.include_router(hardware.router, prefix="/hardware", tags=["Hardware Scanner"])
 app.include_router(link_scan.router, prefix="/link-scan", tags=["Link Scanner"])
+app.include_router(unified_scan.router, prefix="/unified-scan", tags=["Unified Scanner"])
 
 TRUSTED_BRANDS = {
     "google", "youtube", "amazon", "facebook", "instagram",
