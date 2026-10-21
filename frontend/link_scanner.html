@@ -9,10 +9,34 @@
 
     <link rel="stylesheet" href="/static/style.css">
     <style>
-        .link-technical-data { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 420px; overflow: auto; padding: 12px; border-radius: 6px; background: rgba(127,127,127,.08); font-size: .85rem; }
-        .link-finding-item { border: 1px solid rgba(127,127,127,.35); border-radius: 8px; padding: 12px; margin: 10px 0; overflow-wrap: anywhere; }
-        .link-finding-item h4 { margin-top: 0; }
+        .link-scanner-container { max-width: 1180px; }
+        .link-result-card { margin-top: 18px; }
+        .link-result-card h3 { margin-bottom: 14px; }
+        .link-technical-data { display: block; white-space: normal; overflow-wrap: anywhere; max-height: none; overflow: visible; padding: 0; border-radius: 0; background: transparent; font-size: .9rem; }
+        .technical-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: start; }
+        .technical-field { min-width: 0; padding: 12px 14px; border: 1px solid rgba(148, 163, 184, .18); border-radius: 9px; background: rgba(148, 163, 184, .055); }
+        .technical-field-wide { grid-column: 1 / -1; }
+        .technical-key { display: block; margin-bottom: 7px; color: #72d7d0; font-size: .76rem; font-weight: 700; letter-spacing: .045em; text-transform: uppercase; }
+        .technical-value { color: #e1e7f3; line-height: 1.5; overflow-wrap: anywhere; }
+        .technical-value.is-empty { color: #9aa6bd; }
+        .technical-value.is-positive { color: #64d9ad; }
+        .technical-value.is-negative { color: #ff8e9b; }
+        .technical-nested { display: grid; gap: 8px; margin-top: 8px; }
+        .technical-array { display: grid; gap: 6px; padding-left: 0; margin: 0; list-style: none; }
+        .technical-array li { padding: 7px 9px; border-radius: 6px; background: rgba(148, 163, 184, .07); overflow-wrap: anywhere; }
+        .technical-details { border: 1px solid rgba(148, 163, 184, .18); border-radius: 8px; padding: 9px 11px; background: rgba(148, 163, 184, .045); }
+        .technical-details summary { color: #c9d5e9; cursor: pointer; font-weight: 600; }
+        .technical-details .technical-grid { margin-top: 10px; }
+        .technical-long { max-height: 130px; overflow: auto; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .8rem; }
+        .link-finding-item { border: 1px solid rgba(148, 163, 184, .22); border-radius: 10px; padding: 15px; margin: 10px 0; overflow-wrap: anywhere; background: rgba(148, 163, 184, .045); }
+        .link-finding-item h4 { margin-top: 0; margin-bottom: 8px; }
+        .finding-meta { display: flex; gap: 8px; flex-wrap: wrap; margin: 7px 0 12px; }
+        .finding-chip { display: inline-flex; padding: 4px 8px; border-radius: 999px; font-size: .75rem; font-weight: 700; background: rgba(148, 163, 184, .12); }
+        .finding-chip.critical, .finding-chip.high { color: #ff9da7; background: rgba(239, 68, 68, .12); }
+        .finding-chip.medium { color: #ffd08a; background: rgba(245, 158, 11, .12); }
+        .finding-chip.low { color: #8de0c2; background: rgba(16, 185, 129, .12); }
         .link-finding-item pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+        @media (max-width: 700px) { .technical-grid { grid-template-columns: minmax(0, 1fr); } .technical-field-wide { grid-column: auto; } }
     </style>
 </head>
 
@@ -659,11 +683,13 @@ function displayScanResult(result) {
     const riskBadge =
         document.getElementById("riskBadge");
 
+    const riskData = result.risk || {};
     const riskLevel =
-        (result.risk_level || "UNKNOWN").toUpperCase();
+        String(result.risk_level || riskData.level || "UNKNOWN").toUpperCase();
 
     riskBadge.className = "risk-badge";
-    const riskScore = Number.isFinite(Number(result.risk_score)) ? Number(result.risk_score) : null;
+    const rawRiskScore = result.risk_score ?? riskData.score;
+    const riskScore = rawRiskScore !== undefined && rawRiskScore !== null && Number.isFinite(Number(rawRiskScore)) ? Number(rawRiskScore) : null;
 
     if (riskLevel === "LOW") {
         riskBadge.textContent = "LOW RISK";
@@ -688,20 +714,13 @@ function displayScanResult(result) {
 
     riskReasons.innerHTML = "";
 
-    if (
-        result.risk_reasons &&
-        result.risk_reasons.length > 0
-    ) {
-
-        result.risk_reasons.forEach(reason => {
-
+    const riskReasonList = result.risk_reasons || (riskData.findings || []).map(item => item.title || item.details).filter(Boolean);
+    if (riskReasonList.length > 0) {
+        riskReasonList.forEach(reason => {
             const li = document.createElement("li");
-
-            li.textContent = reason;
-
+            li.textContent = typeof reason === "string" ? reason : JSON.stringify(reason);
             riskReasons.appendChild(li);
         });
-
     }
     else {
 
@@ -723,7 +742,7 @@ function displayScanResult(result) {
         domain.ip || "-";
 
     document.getElementById("resolvable").textContent =
-        domain.resolvable ? "Yes" : "No";
+        (domain.resolvable ?? (Array.isArray(domain.ip_addresses) && domain.ip_addresses.length > 0)) ? "Yes" : "No";
 
 
     // SSL
@@ -733,13 +752,13 @@ function displayScanResult(result) {
         ssl.https ? "Yes" : "No";
 
     document.getElementById("certificateStatus").textContent =
-        ssl.valid_cert ? "Valid" : "Invalid / Missing";
+        (ssl.valid_cert ?? ssl.valid) ? "Valid" : "Invalid / Missing";
 
     document.getElementById("sslIssuer").textContent =
         ssl.issuer || "-";
 
     document.getElementById("sslExpires").textContent =
-        ssl.expires || "-";
+        ssl.expires || ssl.not_after || "-";
 
 
     // Redirects
@@ -749,10 +768,10 @@ function displayScanResult(result) {
         redirects.count ?? 0;
 
     document.getElementById("finalStatusCode").textContent =
-        redirects.final_status_code ?? "-";
+        redirects.final_status_code ?? result.http?.status_code ?? "-";
 
     document.getElementById("finalUrl").textContent =
-        redirects.final_url || "-";
+        redirects.final_url || result.http?.final_url || "-";
 
 
     // Redirect chain
@@ -791,13 +810,13 @@ function displayScanResult(result) {
         structure.length ?? "-";
 
     document.getElementById("subdomains").textContent =
-        structure.subdomains ?? "-";
+        structure.subdomains ?? structure.subdomain_count ?? "-";
 
     document.getElementById("parameters").textContent =
         structure.params ?? "-";
 
     document.getElementById("suspiciousEncoding").textContent =
-        structure.suspicious_encoding ? "Yes" : "No";
+        (structure.suspicious_encoding ?? structure.has_percent_encoding) ? "Yes" : "No";
 
 
     // Security headers
@@ -805,16 +824,16 @@ function displayScanResult(result) {
         result.security_headers || {};
 
     document.getElementById("hsts").textContent =
-        headers.hsts ? "Present" : "Missing";
+        (headers.hsts ?? headers.checks?.["strict-transport-security"]?.present) ? "Present" : "Missing";
 
     document.getElementById("csp").textContent =
-        headers.csp ? "Present" : "Missing";
+        (headers.csp ?? headers.checks?.["content-security-policy"]?.present) ? "Present" : "Missing";
 
     document.getElementById("xFrameOptions").textContent =
-        headers.x_frame_options ? "Present" : "Missing";
+        (headers.x_frame_options ?? headers.checks?.["x-frame-options"]?.present) ? "Present" : "Missing";
 
     document.getElementById("xContentTypeOptions").textContent =
-        headers.x_content_type_options
+        (headers.x_content_type_options ?? headers.checks?.["x-content-type-options"]?.present)
             ? "Present"
             : "Missing";
 
@@ -831,23 +850,135 @@ function displayScanResult(result) {
     resultContainer.style.display = "block";
 }
 
+function prettifyKey(key) {
+    return String(key)
+        .replace(/_/g, " ")
+        .replace(/([a-z])([A-Z])/g, "$1 $2")
+        .replace(/\bip\b/gi, "IP")
+        .replace(/\bssl\b/gi, "SSL")
+        .replace(/\bdns\b/gi, "DNS")
+        .replace(/\bhttp\b/gi, "HTTP")
+        .replace(/\btls\b/gi, "TLS")
+        .replace(/\burl\b/gi, "URL")
+        .replace(/\bmx\b/gi, "MX")
+        .replace(/\bns\b/gi, "NS")
+        .replace(/\ba\b/g, "A")
+        .replace(/\b\w/g, character => character.toUpperCase());
+}
+
+function createTechnicalValue(value, depth = 0) {
+    if (value === null || value === undefined || value === "") {
+        const empty = document.createElement("span");
+        empty.className = "technical-value is-empty";
+        empty.textContent = "Not available";
+        return empty;
+    }
+
+    if (typeof value === "boolean") {
+        const flag = document.createElement("span");
+        flag.className = `technical-value ${value ? "is-positive" : "is-negative"}`;
+        flag.textContent = value ? "Yes" : "No";
+        return flag;
+    }
+
+    if (Array.isArray(value)) {
+        if (!value.length) {
+            const empty = document.createElement("span");
+            empty.className = "technical-value is-empty";
+            empty.textContent = "No records";
+            return empty;
+        }
+        const list = document.createElement("ul");
+        list.className = "technical-array";
+        value.forEach(item => {
+            const li = document.createElement("li");
+            li.appendChild(createTechnicalValue(item, depth + 1));
+            list.appendChild(li);
+        });
+        return list;
+    }
+
+    if (typeof value === "object") {
+        const entries = Object.entries(value);
+        if (!entries.length) {
+            const empty = document.createElement("span");
+            empty.className = "technical-value is-empty";
+            empty.textContent = "No details";
+            return empty;
+        }
+        const wrapper = document.createElement("div");
+        wrapper.className = "technical-nested";
+        const grid = document.createElement("div");
+        grid.className = "technical-grid";
+        entries.forEach(([key, child]) => grid.appendChild(createTechnicalField(key, child, depth + 1)));
+        if (depth >= 1 && entries.length > 5) {
+            const details = document.createElement("details");
+            details.className = "technical-details";
+            const summary = document.createElement("summary");
+            summary.textContent = `${entries.length} details — expand to view`;
+            details.append(summary, grid);
+            wrapper.appendChild(details);
+        } else {
+            wrapper.appendChild(grid);
+        }
+        return wrapper;
+    }
+
+    const text = document.createElement("span");
+    const stringValue = String(value);
+    text.className = "technical-value";
+    if (stringValue.length > 260) {
+        const details = document.createElement("details");
+        details.className = "technical-details";
+        const summary = document.createElement("summary");
+        summary.textContent = `Long value (${stringValue.length} characters) — expand`;
+        const content = document.createElement("div");
+        content.className = "technical-value technical-long";
+        content.textContent = stringValue;
+        details.append(summary, content);
+        return details;
+    }
+    text.textContent = stringValue;
+    return text;
+}
+
+function createTechnicalField(key, value, depth = 0) {
+    const field = document.createElement("div");
+    field.className = "technical-field";
+    if (value && typeof value === "object") field.classList.add("technical-field-wide");
+    const label = document.createElement("span");
+    label.className = "technical-key";
+    label.textContent = prettifyKey(key);
+    field.append(label, createTechnicalValue(value, depth));
+    return field;
+}
+
 function renderJson(elementId, value) {
     const element = document.getElementById(elementId);
     if (!element) return;
-    element.textContent = value && Object.keys(value).length
-        ? JSON.stringify(value, null, 2)
-        : "No data available.";
+    element.replaceChildren();
+    if (!value || typeof value !== "object" || !Object.keys(value).length) {
+        const empty = document.createElement("span");
+        empty.className = "technical-value is-empty";
+        empty.textContent = "No data available.";
+        element.appendChild(empty);
+        return;
+    }
+    const grid = document.createElement("div");
+    grid.className = "technical-grid";
+    Object.entries(value).forEach(([key, child]) => grid.appendChild(createTechnicalField(key, child)));
+    element.appendChild(grid);
 }
 
 function renderAdvancedData(result) {
-    renderJson("registrationDetails", result.registration || {});
+    renderJson("registrationDetails", result.registration || result.rdap || {});
     renderJson("dnsDetails", result.dns || {});
     renderJson("httpDetails", result.http || {});
     renderJson("tlsDetails", result.ssl || {});
     renderJson("threatIntelDetails", result.threat_intelligence || {});
     renderJson("collectionDetails", {
         scanned_at: result.scanned_at,
-        scan_duration_ms: result.scan_duration_ms,
+        duration_seconds: result.duration_seconds,
         scanner_version: result.scanner_version,
         collection_status: result.collection_status || {},
         scoring_model: result.scoring_model,
@@ -855,13 +986,15 @@ function renderAdvancedData(result) {
     });
 
     const disclaimer = document.getElementById("riskDisclaimer");
-    if (disclaimer) disclaimer.textContent = result.risk_disclaimer ||
+    const risk = result.risk || {};
+    if (disclaimer) disclaimer.textContent = result.risk_disclaimer || risk.disclaimer ||
         "Risk scores are heuristic and do not prove that a website is safe or malicious.";
 
     const findingsContainer = document.getElementById("detailedFindings");
     if (!findingsContainer) return;
     findingsContainer.replaceChildren();
-    const findings = Array.isArray(result.findings) ? result.findings : [];
+    const findings = Array.isArray(result.findings) ? result.findings :
+        (Array.isArray(risk.findings) ? risk.findings : []);
     if (!findings.length) {
         const p = document.createElement("p");
         p.textContent = "No detailed findings were returned by the backend.";
@@ -872,14 +1005,22 @@ function renderAdvancedData(result) {
         const article = document.createElement("article");
         article.className = "link-finding-item";
         const heading = document.createElement("h4");
-        heading.textContent = `${finding.title || finding.id || "Finding"} (${finding.points || 0} points)`;
-        const severity = document.createElement("p");
-        severity.textContent = `Severity: ${(finding.severity || "unknown").toUpperCase()}`;
+        heading.textContent = finding.title || finding.id || finding.code || "Finding";
+        const meta = document.createElement("div");
+        meta.className = "finding-meta";
+        const severity = document.createElement("span");
+        const severityValue = String(finding.severity || "unknown").toLowerCase();
+        severity.className = `finding-chip ${severityValue}`;
+        severity.textContent = `Severity: ${severityValue.toUpperCase()}`;
+        const points = document.createElement("span");
+        points.className = "finding-chip";
+        points.textContent = `${finding.points ?? 0} points`;
+        meta.append(severity, points);
         const explanation = document.createElement("p");
-        explanation.textContent = finding.explanation || "No explanation provided.";
+        explanation.textContent = finding.explanation || finding.details || "No explanation provided.";
         const recommendation = document.createElement("p");
         recommendation.textContent = `Recommendation: ${finding.recommendation || "Review this finding."}`;
-        article.append(heading, severity, explanation, recommendation);
+        article.append(heading, meta, explanation, recommendation);
         if (finding.evidence !== null && finding.evidence !== undefined) {
             const evidence = document.createElement("pre");
             evidence.textContent = `Evidence: ${JSON.stringify(finding.evidence, null, 2)}`;
