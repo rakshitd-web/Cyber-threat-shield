@@ -1,124 +1,430 @@
-from urllib.parse import urlparse
-import requests
+from __future__ import annotations
+
+import base64
+import ipaddress
+import os
+import re
 import socket
 import ssl
+import time
 from datetime import datetime, timezone
-import tldextract
-import re
+from urllib.parse import urljoin, urlparse, urlunparse
+
+try:
+    import requests
+except ImportError:
+    requests = None
+try:
+    import dns.resolver
+except ImportError:
+    dns = None
+try:
+    import tldextract
+except ImportError:
+    tldextract = None
+
+USER_AGENT = "CyberThreatShield-LinkScanner/2.0"
+TIMEOUT = max(2, min(int(os.getenv("LINK_SCAN_TIMEOUT_SECONDS", "8")), 20))
+MAX_REDIRECTS = max(0, min(int(os.getenv("LINK_SCAN_MAX_REDIRECTS", "8")), 15))
+REDIRECT_CODES = {301, 302, 303, 307, 308}
+SUSPICIOUS_TOKENS = ("login", "verify", "verification", "secure", "account", "update",
+                     "password", "wallet", "banking", "signin", "confirm", "gift", "free",
+                     "bonus", "claim", "support", "payment", "invoice", "webscr")
+
+
+def _now():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _normalise_url(raw_url: str) -> str:
+    if not isinstance(raw_url, str) or not raw_url.strip():
+        raise ValueError("Enter a URL to scan.")
+    value = raw_url.strip()
+    if any(ord(c) < 32 for c in value):
+        raise ValueError("The URL contains control characters.")
+    if "://" not in value:
+        value = "https://" + value
+    p = urlparse(value)
+    if p.scheme.lower() not in {"http", "https"}:
+        raise ValueError("Only HTTP and HTTPS URLs are supported.")
+    if not p.hostname:
+        raise ValueError("The URL does not contain a valid hostname.")
+    if p.username is not None or p.password is not None:
+        raise ValueError("URLs containing embedded usernames or passwords are not accepted.")
+    try:
+        port = p.port
+    except ValueError as exc:
+        raise ValueError("The URL contains an invalid port.") from exc
+    host = p.hostname.encode("idna").decode("ascii").lower()
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
+    netloc = host + (f":{port}" if port is not None else "")
+    return urlunparse((p.scheme.lower(), netloc, p.path or "/", p.params, p.query, ""))
+
+
+def _public_ip(value: str) -> bool:
+    try:
+        ip = ipaddress.ip_address(value)
+        return ip.is_global and not (ip.is_private or ip.is_loopback or ip.is_link_local or
+                                     ip.is_multicast or ip.is_reserved or ip.is_unspecified)
+    except ValueError:
+        return False
+
+
+def _resolve_public_host(host: str) -> list[str]:
+    try:
+        ip = ipaddress.ip_address(host)
+        if not _public_ip(str(ip)):
+            raise ValueError("Scanning private or non-public IP addresses is blocked.")
+        return [str(ip)]
+    except ValueError as exc:
+        if str(exc) == "Scanning private or non-public IP addresses is blocked.":
+            raise
+    try:
+        addresses = sorted({str(ipaddress.ip_address(row[4][0]))
+                            for row in socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)})
+    except socket.gaierror as exc:
+        raise ValueError(f"DNS resolution failed for {host}: {exc}") from exc
+    if not addresses:
+        raise ValueError(f"No IP addresses were returned for {host}.")
+    if any(not _public_ip(addr) for addr in addresses):
+        raise ValueError("The hostname resolves to a private or non-public IP address; scan blocked.")
+    return addresses
+
+
+def _is_ip(host: str) -> bool:
+    try:
+        ipaddress.ip_address(host)
+        return True
+    except ValueError:
+        return False
+
+
+def _domain_parts(host: str) -> dict:
+    result = {"hostname": host, "registered_domain": host, "subdomain": "",
+              "suffix": host.rsplit(".", 1)[-1] if "." in host else "",
+              "is_ip": _is_ip(host), "ip": host if _is_ip(host) else None}
+    if result["is_ip"]:
+        return result
+    if tldextract is not None:
+        try:
+            ext = tldextract.extract(host)
+            registered = ".".join(x for x in (ext.domain, ext.suffix) if x)
+            result.update(registered_domain=registered or host, subdomain=ext.subdomain, suffix=ext.suffix)
+            return result
+        except Exception:
+            pass
+    labels = host.split(".")
+    if len(labels) >= 2:
+        result["registered_domain"] = ".".join(labels[-2:])
+        result["subdomain"] = ".".join(labels[:-2])
+    return result
+
+
+def _dns_records(host: str) -> dict:
+    result = {"available": dns is not None, "records": {}, "errors": []}
+    if dns is None:
+        result["errors"].append("dnspython is not installed; DNS enrichment is unavailable.")
+        return result
+    for kind in ("A", "AAAA", "MX", "NS", "TXT", "CNAME"):
+        try:
+            answers = dns.resolver.resolve(host, kind, lifetime=3)
+            result["records"][kind] = [a.to_text()[:500] for a in list(answers)[:20]]
+        except Exception as exc:
+            result["records"][kind] = []
+            if kind in {"A", "AAAA", "MX", "NS"}:
+                result["errors"].append(f"{kind}: {type(exc).__name__}")
+    return result
+
+
+def _cert_name(value) -> str | None:
+    try:
+        return ", ".join(f"{k}={v}" for group in value for k, v in group)
+    except Exception:
+        return None
+
+
+def _tls_info(host: str) -> dict:
+    result = {"https": True, "valid": False, "subject": None, "issuer": None,
+              "not_before": None, "not_after": None, "days_remaining": None, "error": None}
+    try:
+        with socket.create_connection((host, 443), timeout=TIMEOUT) as sock:
+            with ssl.create_default_context().wrap_socket(sock, server_hostname=host) as conn:
+                cert = conn.getpeercert()
+        result.update(valid=True, subject=_cert_name(cert.get("subject", [])),
+                      issuer=_cert_name(cert.get("issuer", [])),
+                      not_before=cert.get("notBefore"), not_after=cert.get("notAfter"))
+        if cert.get("notAfter"):
+            expiry = datetime.strptime(cert["notAfter"], "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
+            result["days_remaining"] = (expiry - datetime.now(timezone.utc)).days
+    except Exception as exc:
+        result["error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
+    return result
+
+
+def _http_scan(start_url: str) -> dict:
+    result = {"reachable": False, "status_code": None, "final_url": start_url, "headers": {},
+              "redirects": {"count": 0, "chain": [], "details": []}, "error": None,
+              "content_type": None, "server": None}
+    if requests is None:
+        result["error"] = "The requests package is not installed."
+        return result
+    current = start_url
+    session = requests.Session()
+    session.headers.update({"User-Agent": USER_AGENT, "Accept": "*/*"})
+    try:
+        for _ in range(MAX_REDIRECTS + 1):
+            p = urlparse(current)
+            if p.scheme not in {"http", "https"} or not p.hostname:
+                raise ValueError("Redirect target is not a valid HTTP/HTTPS URL.")
+            # Validate every redirect destination before issuing a request to it.
+            _resolve_public_host(p.hostname)
+            try:
+                response = session.get(current, timeout=TIMEOUT, allow_redirects=False,
+                                       stream=True, verify=True)
+            except requests.RequestException as exc:
+                result["error"] = f"{type(exc).__name__}: {str(exc)[:250]}"
+                break
+            result.update(reachable=True, status_code=response.status_code, final_url=current,
+                          headers={str(k).lower(): str(v)[:1000] for k, v in response.headers.items()},
+                          content_type=response.headers.get("Content-Type"),
+                          server=response.headers.get("Server"))
+            status, location = response.status_code, response.headers.get("Location")
+            response.close()
+            if status not in REDIRECT_CODES or not location:
+                break
+            target = _normalise_url(urljoin(current, location))
+            result["redirects"]["chain"].append(target)
+            result["redirects"]["details"].append({"status_code": status, "url": current, "location": target})
+            result["redirects"]["count"] += 1
+            if result["redirects"]["count"] > MAX_REDIRECTS:
+                result["error"] = f"Redirect limit ({MAX_REDIRECTS}) exceeded."
+                break
+            current = target
+    except Exception as exc:
+        result["error"] = f"{type(exc).__name__}: {str(exc)[:250]}"
+    finally:
+        session.close()
+    return result
+
+
+def _url_structure(url: str) -> dict:
+    p = urlparse(url)
+    host = p.hostname or ""
+    return {"length": len(url), "hostname": host, "scheme": p.scheme, "path": p.path,
+            "params": p.query, "query_length": len(p.query),
+            "subdomain_count": max(0, len(host.split(".")) - 2), "has_ip": _is_ip(host),
+            "has_at_symbol": "@" in url, "has_punycode": "xn--" in host.lower(),
+            "has_percent_encoding": bool(re.search(r"%[0-9a-fA-F]{2}", url)),
+            "has_double_slash_in_path": "//" in p.path,
+            "suspicious_tokens": sorted({x for x in SUSPICIOUS_TOKENS if x in url.lower()})}
+
+
+def _security_headers(headers: dict) -> dict:
+    expected = {
+        "strict-transport-security": "Helps enforce HTTPS in supporting browsers.",
+        "content-security-policy": "Restricts the sources from which page content can load.",
+        "x-content-type-options": "Helps prevent MIME-type sniffing.",
+        "x-frame-options": "Can reduce clickjacking risk.",
+        "referrer-policy": "Controls referrer information sent to other sites.",
+        "permissions-policy": "Restricts access to selected browser features.",
+    }
+    checks, missing = {}, []
+    for key, purpose in expected.items():
+        present = key in headers
+        checks[key] = {"present": present, "value": headers.get(key), "purpose": purpose}
+        if not present:
+            missing.append(key)
+    return {"checks": checks, "missing": missing, "count_missing": len(missing)}
+
+
+def _rdap_lookup(host: str) -> dict:
+    result = {"available": False, "domain": None, "events": [], "error": None}
+    if requests is None:
+        result["error"] = "requests package is not installed."
+        return result
+    parts = _domain_parts(host)
+    domain = parts["registered_domain"]
+    if parts["is_ip"] or "." not in domain:
+        result["error"] = "RDAP domain lookup is not applicable to this hostname."
+        return result
+    try:
+        response = requests.get("https://rdap.org/domain/" + domain, timeout=TIMEOUT,
+                                headers={"User-Agent": USER_AGENT, "Accept": "application/rdap+json"})
+        if response.status_code != 200:
+            result["error"] = f"RDAP returned HTTP {response.status_code}."
+            return result
+        data = response.json()
+        result.update(available=True, domain=data.get("ldhName") or domain)
+        result["events"] = [{"action": e.get("eventAction"), "date": e.get("eventDate")}
+                            for e in data.get("events", []) if e.get("eventAction") and e.get("eventDate")]
+    except Exception as exc:
+        result["error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
+    return result
+
+
+def _threat_intelligence(url: str) -> dict:
+    result = {
+        "google_safe_browsing": {"configured": False, "checked": False, "known_threat": False, "matches": [], "error": None},
+        "virustotal": {"configured": False, "checked": False, "known_threat": False, "detections": None, "total_engines": None, "error": None},
+    }
+    if requests is None:
+        for item in result.values():
+            item["error"] = "requests package is not installed."
+        return result
+    google_key = os.getenv("GOOGLE_SAFE_BROWSING_API_KEY", "").strip()
+    if google_key:
+        item = result["google_safe_browsing"]
+        item["configured"] = True
+        payload = {"client": {"clientId": "cyberthreat-shield", "clientVersion": "2.0"},
+                   "threatInfo": {"threatTypes": ["MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE",
+                                                    "POTENTIALLY_HARMFUL_APPLICATION"],
+                                  "platformTypes": ["ANY_PLATFORM"], "threatEntryTypes": ["URL"],
+                                  "threatEntries": [{"url": url}]}}
+        try:
+            response = requests.post("https://safebrowsing.googleapis.com/v4/threatMatches:find",
+                                     params={"key": google_key}, json=payload, timeout=TIMEOUT)
+            if response.ok:
+                matches = response.json().get("matches", [])
+                item.update(checked=True, known_threat=bool(matches),
+                            matches=[{"threatType": m.get("threatType"), "platformType": m.get("platformType")}
+                                     for m in matches[:10]])
+            else:
+                item["error"] = f"Google Safe Browsing returned HTTP {response.status_code}."
+        except Exception as exc:
+            item["error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
+    vt_key = os.getenv("VIRUSTOTAL_API_KEY", "").strip()
+    if vt_key:
+        item = result["virustotal"]
+        item["configured"] = True
+        try:
+            url_id = base64.urlsafe_b64encode(url.encode()).decode().rstrip("=")
+            response = requests.get(f"https://www.virustotal.com/api/v3/urls/{url_id}",
+                                    headers={"x-apikey": vt_key, "User-Agent": USER_AGENT}, timeout=TIMEOUT)
+            if response.status_code == 200:
+                stats = response.json().get("data", {}).get("attributes", {}).get("last_analysis_stats", {})
+                detections = int(stats.get("malicious", 0)) + int(stats.get("suspicious", 0))
+                total = sum(int(v) for v in stats.values() if isinstance(v, (int, float)))
+                item.update(checked=True, known_threat=detections > 0, detections=detections, total_engines=total)
+            elif response.status_code == 404:
+                item["error"] = "URL not found in VirusTotal; it was not submitted for scanning."
+            else:
+                item["error"] = f"VirusTotal returned HTTP {response.status_code}."
+        except Exception as exc:
+            item["error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
+    return result
+
+
+def _compute_risk(url: str, structure: dict, domain: dict, tls: dict, http: dict,
+                  security: dict, rdap: dict, threat: dict) -> dict:
+    findings, score = [], 0
+
+    def add(code, title, points, severity, details, recommendation, evidence=None):
+        nonlocal score
+        score += points
+        findings.append({"code": code, "title": title, "points": points, "severity": severity,
+                         "details": details, "recommendation": recommendation, "evidence": evidence})
+
+    if structure["has_ip"]:
+        add("ip_hostname", "URL uses an IP address", 15, "medium", "The URL uses an IP address instead of a conventional domain name.", "Verify the destination through a trusted source.", structure["hostname"])
+    if structure["has_punycode"]:
+        add("punycode", "Punycode hostname detected", 12, "medium", "Internationalized hostnames can be used for lookalike-domain attacks.", "Check the hostname carefully for visually similar characters.", structure["hostname"])
+    if structure["has_at_symbol"]:
+        add("at_symbol", "At-sign present in URL", 12, "medium", "An at-sign can make the apparent URL destination misleading.", "Inspect the parsed hostname, not just the displayed URL.")
+    if structure["length"] > 180:
+        add("long_url", "Unusually long URL", 8, "low", "Long URLs can obscure the destination.", "Confirm the hostname and query parameters.")
+    if structure["subdomain_count"] >= 4:
+        add("many_subdomains", "Large number of subdomains", 8, "low", "The hostname contains several subdomain levels.", "Confirm that the complete hostname is expected.", structure["hostname"])
+    if structure["has_percent_encoding"]:
+        add("percent_encoding", "Percent-encoded URL characters", 4, "low", "Percent encoding can obscure URL content.", "Inspect the URL if it was received unexpectedly.")
+    if structure["suspicious_tokens"]:
+        add("suspicious_tokens", "Potentially deceptive URL keywords", 8, "low", "The URL contains words sometimes used in credential theft or misleading offers.", "Do not enter credentials unless the site is independently verified.", structure["suspicious_tokens"])
+    if domain.get("suffix") in {"zip", "mov"}:
+        add("uncommon_tld", "TLD sometimes used in misleading links", 3, "low", "This TLD can also resemble a common file extension.", "Verify the registered domain before opening the link.", domain.get("suffix"))
+    if urlparse(url).scheme == "http":
+        add("no_https", "Connection does not use HTTPS", 15, "medium", "The URL uses unencrypted HTTP.", "Do not submit passwords or payment information.")
+    elif not tls.get("valid"):
+        add("tls_problem", "TLS certificate could not be validated", 18, "high", "A valid TLS certificate could not be confirmed.", "Do not bypass browser certificate warnings.", tls.get("error"))
 
     cross_domain = []
-
-    for hop in redirects.get("chain", []):
-        dest = hop.get("location")
-        if (
-            dest
-            and urlparse(dest).hostname
-            and urlparse(dest).hostname != structure.get("hostname")
-        ):
-            cross_domain.append(dest)
-
+    for hop in http.get("redirects", {}).get("details", http.get("redirects", {}).get("chain", [])):
+        destination = hop.get("location") if isinstance(hop, dict) else str(hop)
+        target_host = (urlparse(destination).hostname or "").lower()
+        if target_host and target_host != (urlparse(url).hostname or "").lower():
+            cross_domain.append(destination)
     if cross_domain:
-        add(
-            "cross_domain_redirect","Cross-domain redirect detected",5,"low","At least one redirect points to a different hostname; ""this can be legitimate but deserves review.","Confirm that each destination belongs to the expected service.",cross_domain,)
-    if structure.get("punycode_hostname"):
-        add("punycode", "Internationalized/punycode hostname", 8, "medium", "The hostname contains punycode. This is not inherently malicious but can be used in lookalike domains.", "Inspect the rendered hostname carefully.")
-    if structure.get("contains_ip_address"):
-        add("ip_hostname", "URL uses an IP address instead of a domain", 8, "medium", "IP-based URLs can be legitimate but are common in disposable or deceptive infrastructure.", "Verify the destination owner and expected use.")
-    if structure.get("contains_at_symbol"):
-        add("at_symbol", "URL contains an @ symbol", 10, "medium", "An @ character in a URL can confuse readers about the actual hostname.", "Inspect the parsed hostname, not only the displayed URL.")
-    if structure.get("subdomains", 0) > 3:
-        add("many_subdomains", "Unusually deep subdomain structure", 4, "low", f"The hostname has {structure['subdomains']} subdomain labels.", "Check whether the hostname belongs to the expected registered domain.")
-    if structure.get("suspicious_encoding"):
-        add("encoded_url", "Percent-encoded URL characters", 3, "low", "The URL contains percent-encoded characters. Encoding is often legitimate but may obscure the path.", "Decode and inspect the URL path and query before opening it.")
-    if structure.get("length", 0) > 200:
-        add("long_url", "Unusually long URL", 3, "low", f"URL length is {structure['length']} characters.", "Inspect long query parameters and encoded paths.")
-    if structure.get("suspicious_tokens"):
-        add("suspicious_terms", "Security-sensitive terms in URL", 2, "low", "The URL contains terms often used on account and login pages; this is weak contextual evidence only.", "Check the domain independently and do not enter credentials unless the site is verified.", structure["suspicious_tokens"])
-    missing = headers.get("missing", [])
-    if len(missing) >= 5:
-        add("headers_missing", "Several recommended security headers are missing", 5, "low", f"Missing headers: {', '.join(missing)}.", "Review headers appropriate to the site's functionality; header absence alone does not establish phishing.", missing)
-    elif len(missing) >= 3:
-        add("headers_missing", "Some recommended security headers are missing", 3, "low", f"Missing headers: {', '.join(missing)}.", "Review headers appropriate to the site's functionality.", missing)
-    if rdap.get("available") and rdap.get("creation_date"):
-        try:
-            created = datetime.fromisoformat(rdap["creation_date"].replace("Z", "+00:00"))
-            age_days = (datetime.now(timezone.utc) - created.astimezone(timezone.utc)).days
-            if 0 <= age_days <= 30:
-                add("new_domain", "Recently registered domain", 8, "medium", f"RDAP indicates the domain was registered approximately {age_days} day(s) ago.", "Treat this as contextual evidence and verify the organization through independent channels.", {"age_days": age_days})
-        except (ValueError, TypeError):
-            pass
+        add("cross_domain_redirect", "Cross-domain redirect detected", 5, "low", "At least one redirect points to a different hostname; this can be legitimate but deserves review.", "Confirm each redirect destination belongs to the expected service.", cross_domain)
+    if security.get("count_missing", 0) >= 4:
+        add("missing_security_headers", "Several security headers are missing", 5, "low", "Several recommended browser security headers are absent.", "Site operators should review the missing headers.", security.get("missing"))
 
-    score = min(100, score)
-    if score >= 75:
-        level = "CRITICAL"
-    elif score >= 50:
-        level = "HIGH"
-    elif score >= 20:
-        level = "MEDIUM"
-    else:
-        level = "LOW"
-    confirmed_threat = any(f["id"] == "known_threat" for f in findings) or (vt.get("checked") and vt_mal >= 3)
-    if confirmed_threat:
-        score = 100
-        level = "CRITICAL"
-    if not findings:
-        findings.append({"id": "no_indicators", "title": "No configured risk indicators triggered", "points": 0, "severity": "info", "explanation": "The checks completed did not trigger the current heuristic rules. This is not proof that the site is safe.", "recommendation": "Continue to verify the domain and use caution with unexpected links.", "evidence": None})
-    return {"risk_score": score, "risk_level": level, "risk_reasons": [f["title"] for f in findings if f["points"] > 0], "findings": findings, "scoring_model": "weighted-heuristic-v2", "confirmed_threat_match": confirmed_threat, "risk_disclaimer": "A low score does not prove a website is safe. Reputation coverage depends on configured providers and available evidence."}
+    for event in rdap.get("events", []):
+        if event.get("action", "").lower() in {"registration", "registered"} and event.get("date"):
+            try:
+                registered = datetime.fromisoformat(event["date"].replace("Z", "+00:00"))
+                age_days = (datetime.now(timezone.utc) - registered.astimezone(timezone.utc)).days
+                domain["age_days"] = age_days
+                if 0 <= age_days < 30:
+                    add("new_domain", "Recently registered domain", 12, "medium", f"The domain appears to have been registered {age_days} days ago.", "Verify the site through an independent trusted source.", event["date"])
+                break
+            except Exception:
+                pass
+
+    google = threat.get("google_safe_browsing", {})
+    vt = threat.get("virustotal", {})
+    known = bool(google.get("known_threat") or vt.get("known_threat"))
+    if google.get("known_threat"):
+        add("google_safe_browsing_match", "Google Safe Browsing reported a threat", 100, "critical", "Google Safe Browsing returned a threat match for this URL.", "Do not open the link; follow your security reporting process.", google.get("matches"))
+    if vt.get("known_threat"):
+        add("virustotal_detections", "VirusTotal reports detections", 70, "critical", "VirusTotal engines classified the URL as malicious or suspicious.", "Avoid opening the link and verify through your security process.", {"detections": vt.get("detections"), "total_engines": vt.get("total_engines")})
+    score = max(0, min(100, score))
+    level = "Critical" if known else "High" if score >= 60 else "Medium" if score >= 30 else "Low"
+    return {"score": score, "level": level, "findings": findings, "known_threat": known,
+            "disclaimer": "This heuristic assessment cannot guarantee that a URL is safe or malicious."}
 
 
-def scan_link(raw_url: str) -> dict[str, Any]:
-    started = time.perf_counter()
-    url = normalize_url(raw_url)
-    base: dict[str, Any] = {"url": raw_url, "normalized_url": url, "scanned_at": utc_now(), "scanner_version": "2.0"}
-    if not is_valid_url(url):
-        return {**base, "valid": False, "error": "Malformed URL. Enter a valid HTTP or HTTPS URL."}
-    parsed = urlparse(url)
-    hostname = parsed.hostname or ""
-    ok, reason, ips = _validate_public_target(url)
-    if not ok:
-        return {**base, "valid": False, "error": f"Scan blocked by destination safety policy: {reason}", "domain": {"hostname": hostname, "ip_addresses": ips, "resolvable": bool(ips)}, "security_note": "The scanner blocks private and non-public destinations to reduce SSRF risk."}
+def scan_link(raw_url: str) -> dict:
+    """Scan one public HTTP/HTTPS URL; return a JSON-serializable report."""
+    started = time.monotonic()
+    try:
+        url = _normalise_url(raw_url)
+        parsed = urlparse(url)
+        host = parsed.hostname or ""
+        ips = _resolve_public_host(host)
+    except Exception as exc:
+        return {"success": False, "url": raw_url if isinstance(raw_url, str) else "", "error": str(exc),
+                "risk": {"score": 0, "level": "Unknown", "findings": [], "known_threat": False},
+                "collection_status": {"completed": False, "timestamp": _now()}}
 
-    domain_info = resolve_domain(hostname)
-    structure = analyze_url_structure(url)
-    # Use the registrable domain for RDAP where possible.
-    registered_domain = structure.get("registered_domain") or hostname
-    rdap = collect_rdap(registered_domain)
-    dns_info = collect_dns_records(hostname)
-    ssl_info = check_ssl(hostname, parsed.port or (443 if parsed.scheme == "https" else 443)) if parsed.scheme == "https" else {"https": False, "valid_cert": False, "issuer": None, "expires": None, "subject": None, "san_domains": [], "tls_version": None, "cipher": None, "days_until_expiry": None, "error": "URL uses HTTP; TLS was not attempted."}
-    redirects = analyze_redirects(url)
-    http_info = collect_http_details(url, redirects)
-    header_info = check_security_headers(http_info.get("all_response_headers", {}))
-    threat_intel = {"google_safe_browsing": google_safe_browsing_lookup(url), "virustotal": virustotal_lookup(url)}
-    risk = compute_risk(ssl_info, redirects, header_info, structure, threat_intel, rdap)
-
-    result = {
-        **base, "valid": True,
-        "domain": domain_info,
-        "registration": rdap,
-        "dns": dns_info,
-        "ssl": ssl_info,
-        "redirects": redirects,
-        "http": http_info,
-        "url_structure": structure,
-        "security_headers": header_info,
-        "threat_intelligence": threat_intel,
-        **risk,
-        "scan_duration_ms": round((time.perf_counter() - started) * 1000, 2),
-        "collection_status": {
-            "dns": "partial" if dns_info.get("errors") else "completed",
-            "registration": "completed" if rdap.get("available") else "unavailable",
-            "tls": "completed" if ssl_info.get("https") or parsed.scheme == "http" else "failed_or_unavailable",
-            "http": "completed" if http_info.get("reachable") else "failed_or_unavailable",
-            "google_safe_browsing": "completed" if threat_intel["google_safe_browsing"].get("checked") else "not_configured_or_failed",
-            "virustotal": "completed" if threat_intel["virustotal"].get("checked") else "not_configured_or_failed",
-        },
-    }
-    # Backward-compatible summary fields used by the current frontend.
-    result["legacy_summary"] = {
-        "hostname": domain_info.get("hostname"), "ip": domain_info.get("ip"),
-        "resolvable": domain_info.get("resolvable"), "https": ssl_info.get("https"),
-        "valid_cert": ssl_info.get("valid_cert"), "issuer": ssl_info.get("issuer"), "expires": ssl_info.get("expires"),
-        "redirect_count": redirects.get("count"), "final_status_code": redirects.get("final_status_code"),
-        "final_url": redirects.get("final_url"),
-    }
-    return result
+    domain = _domain_parts(host)
+    domain["ip"] = ips[0] if ips else None
+    domain["ip_addresses"] = ips
+    dns_data = _dns_records(host)
+    tls = _tls_info(host) if parsed.scheme == "https" else {
+        "https": False, "valid": False, "subject": None, "issuer": None, "not_before": None,
+        "not_after": None, "days_remaining": None, "error": "The URL uses HTTP; no TLS certificate was checked."}
+    http = _http_scan(url)
+    headers = http.get("headers", {})
+    security = _security_headers(headers)
+    structure = _url_structure(url)
+    rdap = _rdap_lookup(host)
+    threat = _threat_intelligence(url)
+    risk = _compute_risk(url, structure, domain, tls, http, security, rdap, threat)
+    legacy = {"url": url,
+              "domain": {"hostname": host, "ip": ips[0] if ips else None, "ips": ips, "registered_domain": domain.get("registered_domain")},
+              "ssl": {"https": parsed.scheme == "https", "valid": tls.get("valid"), **tls},
+              "redirects": http.get("redirects", {"count": 0, "chain": []}),
+              "url_structure": structure,
+              "http": {k: http.get(k) for k in ("reachable", "status_code", "final_url", "content_type", "server", "error")},
+              "security_headers": security, "risk": risk}
+    return {"success": True, "url": url, "scanned_at": _now(),
+            "duration_seconds": round(time.monotonic() - started, 3), "domain": domain, "dns": dns_data,
+            "ssl": tls, "redirects": http.get("redirects", {"count": 0, "chain": []}),
+            "http": {"reachable": http.get("reachable"), "status_code": http.get("status_code"),
+                     "final_url": http.get("final_url"), "headers": headers, "content_type": http.get("content_type"),
+                     "server": http.get("server"), "error": http.get("error")},
+            "url_structure": structure, "security_headers": security, "rdap": rdap,
+            "threat_intelligence": threat, "risk": risk, "legacy_summary": legacy,
+            "collection_status": {"completed": True, "timestamp": _now(), "notes": [
+                "Public DNS, TLS, HTTP, RDAP and optional threat-intelligence checks are best-effort.",
+                "Threat-intelligence checks require API keys in the server environment.",
+                "A low risk score does not prove that a URL is safe."]}}
